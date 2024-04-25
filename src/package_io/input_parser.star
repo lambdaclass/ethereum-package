@@ -21,6 +21,7 @@ DEFAULT_CL_IMAGES = {
     "prysm": "gcr.io/prysmaticlabs/prysm/beacon-chain:latest",
     "lodestar": "chainsafe/lodestar:next",
     "grandine": "ethpandaops/grandine:develop",
+    "lambda_ethereum_consensus": "lambda_ethereum_consensus:latest",
 }
 
 DEFAULT_VC_IMAGES = {
@@ -30,6 +31,7 @@ DEFAULT_VC_IMAGES = {
     "prysm": "gcr.io/prysmaticlabs/prysm/validator:latest",
     "teku": "consensys/teku:latest",
     "grandine": "sifrai/grandine:latest",
+    "lambda_ethereum_consensus": "lambda_ethereum_consensus:latest",
 }
 
 MEV_BOOST_RELAY_DEFAULT_IMAGE = "flashbots/mev-boost-relay:0.27"
@@ -409,6 +411,7 @@ def parse_network_params(input_args):
                     constants.CL_TYPE.nimbus,
                     constants.CL_TYPE.teku,
                     constants.CL_TYPE.grandine,
+                    constants.CL_TYPE.lambda_ethereum_consensus,
                 )
                 and vc_type == ""
             ):
@@ -442,6 +445,12 @@ def parse_network_params(input_args):
                     )
                 )
             participant["vc_image"] = default_image
+
+        if (
+            cl_type == constants.CL_TYPE.lambda_ethereum_consensus
+            and vc_type != constants.CL_TYPE.lambda_ethereum_consensus
+        ):
+            fail("lambda_ethereum_consensus does not support running a different validator client")
 
         snooper_enabled = participant["snooper_enabled"]
         if snooper_enabled == None:
