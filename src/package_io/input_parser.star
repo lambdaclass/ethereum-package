@@ -23,6 +23,7 @@ DEFAULT_CL_IMAGES = {
     "prysm": "gcr.io/prysmaticlabs/prysm/beacon-chain:stable",
     "lodestar": "chainsafe/lodestar:latest",
     "grandine": "sifrai/grandine:stable",
+    "lambda_ethereum_consensus": "lambda_ethereum_consensus:latest",
 }
 
 DEFAULT_CL_IMAGES_MINIMAL = {
@@ -32,6 +33,7 @@ DEFAULT_CL_IMAGES_MINIMAL = {
     "prysm": "ethpandaops/prysm-beacon-chain:develop-minimal",
     "lodestar": "chainsafe/lodestar:latest",
     "grandine": "ethpandaops/grandine:develop-minimal",
+    "lambda_ethereum_consensus": "lambda_ethereum_consensus:latest",
 }
 
 DEFAULT_VC_IMAGES = {
@@ -42,6 +44,7 @@ DEFAULT_VC_IMAGES = {
     "teku": "consensys/teku:latest",
     "grandine": "sifrai/grandine:stable",
     "vero": "ghcr.io/serenita-org/vero:master",
+    "lambda_ethereum_consensus": "lambda_ethereum_consensus:latest",
 }
 
 DEFAULT_VC_IMAGES_MINIMAL = {
@@ -637,6 +640,7 @@ def parse_network_params(plan, input_args):
                     constants.CL_TYPE.nimbus,
                     constants.CL_TYPE.teku,
                     constants.CL_TYPE.grandine,
+                    constants.CL_TYPE.lambda_ethereum_consensus,
                 )
                 and vc_type == ""
             ):
@@ -682,6 +686,12 @@ def parse_network_params(plan, input_args):
             participant["remote_signer_image"] = DEFAULT_REMOTE_SIGNER_IMAGES.get(
                 remote_signer_type, ""
             )
+
+        if (
+            cl_type == constants.CL_TYPE.lambda_ethereum_consensus
+            and vc_type != constants.CL_TYPE.lambda_ethereum_consensus
+        ):
+            fail("lambda_ethereum_consensus does not support running a different validator client")
 
         snooper_enabled = participant["snooper_enabled"]
         if snooper_enabled == None:

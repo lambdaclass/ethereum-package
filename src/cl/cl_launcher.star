@@ -4,6 +4,7 @@ nimbus = import_module("./nimbus/nimbus_launcher.star")
 prysm = import_module("./prysm/prysm_launcher.star")
 teku = import_module("./teku/teku_launcher.star")
 grandine = import_module("./grandine/grandine_launcher.star")
+lambda_ethereum_consensus = import_module("./lambda_ethereum_consensus/lambda_ethereum_consensus_launcher.star")
 
 constants = import_module("../package_io/constants.star")
 input_parser = import_module("../package_io/input_parser.star")
@@ -78,6 +79,14 @@ def launch(
                 network_params,
             ),
             "launch_method": grandine.launch,
+        },
+        constants.CL_TYPE.lambda_ethereum_consensus: {
+            "launcher": lambda_ethereum_consensus.new_lambda_ethereum_consensus_launcher(
+                el_cl_data,
+                jwt_file,
+                network_params.network,
+            ),
+            "launch_method": lambda_ethereum_consensus.launch,
         },
     }
 
