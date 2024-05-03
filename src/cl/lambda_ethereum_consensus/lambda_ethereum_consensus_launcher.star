@@ -90,6 +90,7 @@ def launch(
     node_selectors,
     use_separate_vc,
     keymanager_enabled,
+    port_publisher,
 ):
     beacon_service_name = "{0}".format(service_name)
     log_level = input_parser.get_client_log_level_or_default(
@@ -258,11 +259,11 @@ def get_beacon_config(
         ),
         "--datadir=" + BEACON_DATA_DIRPATH_ON_SERVICE_CONTAINER,
         "--beacon-api-port={0}".format(BEACON_HTTP_PORT_NUM),
-        # "--libp2p-port={0}".format(BEACON_DISCOVERY_PORT_NUM),
         "--discovery-port={0}".format(BEACON_DISCOVERY_PORT_NUM),
         "--execution-jwt=" + constants.JWT_MOUNT_PATH_ON_CONTAINER,
         "--execution-endpoint=" + EXECUTION_ENGINE_ENDPOINT,
         # # vvvvvvvvvvvvvvvvvvv REMOVE THESE WHEN CONNECTING TO EXTERNAL NET vvvvvvvvvvvvvvvvvvvvv
+        "--listen-address=0.0.0.0:{0}".format(BEACON_DISCOVERY_PORT_NUM),
         # "--disable-enr-auto-update",
         # "--enr-address=" + PRIVATE_IP_ADDRESS_PLACEHOLDER,
         # "--enr-udp-port={0}".format(BEACON_DISCOVERY_PORT_NUM),
