@@ -16,7 +16,7 @@ CL_TYPE = struct(
     prysm="prysm",
     lodestar="lodestar",
     grandine="grandine",
-    lambda_ethereum_consensus="lambda-ethereum-consensus",
+    lambda_eth="lambda",
 )
 
 VC_TYPE = struct(
@@ -146,7 +146,7 @@ VOLUME_SIZE = {
         "nimbus_volume_size": 500000,  # 500GB
         "lodestar_volume_size": 500000,  # 500GB
         "grandine_volume_size": 500000,  # 500GB
-        "lambda_ethereum_consensus_volume_size": 500000,  # 500GB
+        "lambda_volume_size": 500000,  # 500GB
     },
     "sepolia": {
         "geth_volume_size": 300000,  # 300GB
@@ -162,7 +162,7 @@ VOLUME_SIZE = {
         "nimbus_volume_size": 150000,  # 150GB
         "lodestar_volume_size": 150000,  # 150GB
         "grandine_volume_size": 150000,  # 150GB
-        "lambda_ethereum_consensus_volume_size": 150000,  # 150GB
+        "lambda_volume_size": 150000,  # 150GB
     },
     "holesky": {
         "geth_volume_size": 100000,  # 100GB
@@ -178,7 +178,7 @@ VOLUME_SIZE = {
         "nimbus_volume_size": 100000,  # 100GB
         "lodestar_volume_size": 100000,  # 100GB
         "grandine_volume_size": 100000,  # 100GB
-        "lambda_ethereum_consensus_volume_size": 100000,  # 100GB
+        "lambda_volume_size": 100000,  # 100GB
     },
     "devnets": {
         "geth_volume_size": 100000,  # 100GB
@@ -194,7 +194,7 @@ VOLUME_SIZE = {
         "nimbus_volume_size": 100000,  # 100GB
         "lodestar_volume_size": 100000,  # 100GB
         "grandine_volume_size": 100000,  # 100GB
-        "lambda_ethereum_consensus_volume_size": 100000,  # 100GB
+        "lambda_volume_size": 100000,  # 100GB
     },
     "ephemery": {
         "geth_volume_size": 5000,  # 5GB
@@ -210,7 +210,7 @@ VOLUME_SIZE = {
         "nimbus_volume_size": 1000,  # 1GB
         "lodestar_volume_size": 1000,  # 1GB
         "grandine_volume_size": 1000,  # 1GB
-        "lambda_ethereum_consensus_volume_size": 1000,  # 1GB
+        "lambda_volume_size": 1000,  # 1GB
     },
     "kurtosis": {
         "geth_volume_size": 5000,  # 5GB
@@ -226,7 +226,7 @@ VOLUME_SIZE = {
         "nimbus_volume_size": 1000,  # 1GB
         "lodestar_volume_size": 1000,  # 1GB
         "grandine_volume_size": 1000,  # 1GB
-        "lambda_ethereum_consensus_volume_size": 1000,  # 1GB
+        "lambda_volume_size": 1000,  # 1GB
     },
 }
 
@@ -258,8 +258,8 @@ RAM_CPU_OVERRIDES = {
         "lodestar_max_cpu": 4000,  # 4 cores
         "grandine_max_mem": 16384,  # 16GB
         "grandine_max_cpu": 4000,  # 4 cores
-        "lambda_ethereum_consensus_max_mem": 16384,  # 16GB
-        "lambda_ethereum_consensus_max_cpu": 4000,  # 4 cores
+        "lambda_max_mem": 16384,  # 16GB
+        "lambda_max_cpu": 4000,  # 4 cores
     },
     "sepolia": {
         "geth_max_mem": 4096,  # 4GB
@@ -288,8 +288,8 @@ RAM_CPU_OVERRIDES = {
         "lodestar_max_cpu": 1000,  # 1 core
         "grandine_max_mem": 4096,  # 4GB
         "grandine_max_cpu": 1000,  # 1 core
-        "lambda_ethereum_consensus_max_mem": 4096,  # 4GB
-        "lambda_ethereum_consensus_max_cpu": 1000,  # 1 core
+        "lambda_max_mem": 4096,  # 4GB
+        "lambda_max_cpu": 1000,  # 1 core
     },
     "holesky": {
         "geth_max_mem": 8192,  # 8GB
@@ -318,8 +318,8 @@ RAM_CPU_OVERRIDES = {
         "lodestar_max_cpu": 2000,  # 2 cores
         "grandine_max_mem": 8192,  # 8GB
         "grandine_max_cpu": 2000,  # 2 cores
-        "lambda_ethereum_consensus_max_mem": 8192,  # 8GB
-        "lambda_ethereum_consensus_max_cpu": 2000,  # 2 cores
+        "lambda_max_mem": 8192,  # 8GB
+        "lambda_max_cpu": 2000,  # 2 cores
     },
     "devnets": {
         "geth_max_mem": 4096,  # 4GB
@@ -348,8 +348,8 @@ RAM_CPU_OVERRIDES = {
         "lodestar_max_cpu": 1000,  # 1 core
         "grandine_max_mem": 4096,  # 4GB
         "grandine_max_cpu": 1000,  # 1 core
-        "lambda_ethereum_consensus_max_mem": 4096,  # 4GB
-        "lambda_ethereum_consensus_max_cpu": 1000,  # 1 core
+        "lambda_max_mem": 4096,  # 4GB
+        "lambda_max_cpu": 1000,  # 1 core
     },
     "ephemery": {
         "geth_max_mem": 1024,  # 1GB
@@ -378,8 +378,8 @@ RAM_CPU_OVERRIDES = {
         "lodestar_max_cpu": 1000,  # 1 core
         "grandine_max_mem": 1024,  # 1GB
         "grandine_max_cpu": 1000,  # 1 core
-        "lambda_ethereum_consensus_max_mem": 1024,  # 1GB
-        "lambda_ethereum_consensus_max_cpu": 1000,  # 1 core
+        "lambda_max_mem": 1024,  # 1GB
+        "lambda_max_cpu": 1000,  # 1 core
     },
     "kurtosis": {
         "geth_max_mem": 1024,  # 1GB
@@ -408,7 +408,7 @@ RAM_CPU_OVERRIDES = {
         "lodestar_max_cpu": 1000,  # 1 core
         "grandine_max_mem": 2048,  # 2GB
         "grandine_max_cpu": 1000,  # 1 core
-        "lambda_ethereum_consensus_max_mem": 2048,  # 2GB
-        "lambda_ethereum_consensus_max_cpu": 1000,  # 1 core
+        "lambda_max_mem": 2048,  # 2GB
+        "lambda_max_cpu": 1000,  # 1 core
     },
 }
