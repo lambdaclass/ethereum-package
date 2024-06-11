@@ -139,7 +139,7 @@ def launch(
     enode = el_admin_node_info.get_enode_for_node(plan, service_name, RPC_PORT_ID)
 
     metric_url = "{0}:{1}".format(service.ip_address, METRICS_PORT_NUM)
-    reth_metrics_info = node_metrics.new_node_metrics_info(
+    metrics_info = node_metrics.new_node_metrics_info(
         service_name, METRICS_PATH, metric_url
     )
 
@@ -152,7 +152,7 @@ def launch(
         WS_PORT_NUM,
         ENGINE_RPC_PORT_NUM,
         service_name,
-        [reth_metrics_info],
+        [metrics_info],
     )
 
 
