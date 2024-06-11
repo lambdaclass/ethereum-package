@@ -197,7 +197,7 @@ def get_config(
         "ethereum_rust",
         # "-{0}".format(verbosity_level),
         # "--datadir=" + EXECUTION_DATA_DIRPATH_ON_CLIENT_CONTAINER,
-        # "--chain={0}".format(
+        # "--network={0}".format(
         #     network
         #     if network in constants.PUBLIC_NETWORKS
         #     else constants.GENESIS_CONFIG_MOUNT_PATH_ON_CONTAINER + "/genesis.json"
