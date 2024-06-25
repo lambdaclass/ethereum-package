@@ -93,19 +93,19 @@ def launch(
     el_max_cpu = (
         int(el_max_cpu)
         if int(el_max_cpu) > 0
-        else constants.RAM_CPU_OVERRIDES[network_name]["ethereumrust_max_cpu"]
+        else constants.RAM_CPU_OVERRIDES[network_name]["ethrex_max_cpu"]
     )
     el_min_mem = int(el_min_mem) if int(el_min_mem) > 0 else EXECUTION_MIN_MEMORY
     el_max_mem = (
         int(el_max_mem)
         if int(el_max_mem) > 0
-        else constants.RAM_CPU_OVERRIDES[network_name]["ethereumrust_max_mem"]
+        else constants.RAM_CPU_OVERRIDES[network_name]["ethrex_max_mem"]
     )
 
     el_volume_size = (
         el_volume_size
         if int(el_volume_size) > 0
-        else constants.VOLUME_SIZE[network_name]["ethereumrust_volume_size"]
+        else constants.VOLUME_SIZE[network_name]["ethrex_volume_size"]
     )
 
     cl_client_name = service_name.split("-")[3]
@@ -144,8 +144,8 @@ def launch(
     )
 
     return el_context.new_el_context(
-        "ethereumrust",
-        "",  # ethereumrust has no enr?
+        "ethrex",
+        "",  # ethrex has no enr?
         enode,
         service.ip_address,
         RPC_PORT_NUM,
@@ -194,7 +194,7 @@ def get_config(
     used_ports = get_used_ports(discovery_port)
 
     cmd = [
-        "ethereum_rust",
+        "ethrex",
         # "-{0}".format(verbosity_level),
         # "--datadir=" + EXECUTION_DATA_DIRPATH_ON_CLIENT_CONTAINER,
         # "--network={0}".format(
@@ -281,7 +281,7 @@ def get_config(
         max_memory=el_max_mem,
         env_vars=extra_env_vars,
         labels=shared_utils.label_maker(
-            constants.EL_TYPE.ethereumrust,
+            constants.EL_TYPE.ethrex,
             constants.CLIENT_TYPES.el,
             image,
             cl_client_name,
@@ -292,7 +292,7 @@ def get_config(
     )
 
 
-def new_ethereumrust_launcher(el_cl_genesis_data, jwt_file, network):
+def new_ethrex_launcher(el_cl_genesis_data, jwt_file, network):
     return struct(
         el_cl_genesis_data=el_cl_genesis_data,
         jwt_file=jwt_file,
