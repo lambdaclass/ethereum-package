@@ -98,7 +98,7 @@ def launch(
             ),
             "launch_method": nimbus_eth1.launch,
         },
-        constants.EL_TYPE.ethereum_rust: {
+        constants.EL_TYPE.ethereumrust: {
             "launcher": ethereum_rust.new_ethereum_rust_launcher(
                 el_cl_data,
                 jwt_file,
