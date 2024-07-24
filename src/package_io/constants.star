@@ -7,7 +7,7 @@ EL_TYPE = struct(
     reth="reth",
     ethereumjs="ethereumjs",
     nimbus="nimbus",
-    ethereum_rust="ethereum_rust",
+    ethereumrust="ethereumrust",
 )
 
 CL_TYPE = struct(
