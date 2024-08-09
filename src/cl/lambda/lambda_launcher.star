@@ -14,7 +14,6 @@ BEACON_TCP_DISCOVERY_PORT_ID = "tcp-discovery"
 BEACON_UDP_DISCOVERY_PORT_ID = "udp-discovery"
 BEACON_HTTP_PORT_ID = "http"
 BEACON_METRICS_PORT_ID = "metrics"
-VALIDATOR_HTTP_PORT_ID = "http-validator"
 
 # Port nums
 BEACON_DISCOVERY_PORT_NUM = 9000
@@ -33,7 +32,7 @@ MIN_PEERS = 1
 
 PRIVATE_IP_ADDRESS_PLACEHOLDER = "KURTOSIS_IP_ADDR_PLACEHOLDER"
 
-BEACON_USED_PORTS = {
+BEACON_DEFAULT_USED_PORTS = {
     BEACON_TCP_DISCOVERY_PORT_ID: shared_utils.new_port_spec(
         BEACON_DISCOVERY_PORT_NUM, shared_utils.TCP_PROTOCOL
     ),
@@ -286,7 +285,7 @@ def get_beacon_config(
     keymanager_api_cmd = [
         # "--enable-validator-api",
         # "--validator-api-address=0.0.0.0",
-        # "--validator-api-port={0}".format(vc_shared.VALIDATOR_HTTP_PORT_NUM),
+        "--validator-api-port={0}".format(vc_shared.VALIDATOR_HTTP_PORT_NUM),
         # "--validator-api-allowed-origins=*",
         # "--validator-api-bearer-file=" + constants.KEYMANAGER_MOUNT_PATH_ON_CONTAINER,
     ]
@@ -351,12 +350,15 @@ def get_beacon_config(
     }
 
     ports = {}
-    ports.update(BEACON_USED_PORTS)
+    ports.update(BEACON_DEFAULT_USED_PORTS)
     if node_keystore_files != None and not use_separate_vc:
         cmd.extend(validator_default_cmd)
         files[
             VALIDATOR_KEYS_DIRPATH_ON_SERVICE_CONTAINER
         ] = node_keystore_files.files_artifact_uuid
+    if keymanager_enabled:
+        cmd.extend(keymanager_api_cmd)
+        ports.update(vc_shared.VALIDATOR_KEYMANAGER_USED_PORTS)
 
     if persistent:
         files[BEACON_DATA_DIRPATH_ON_SERVICE_CONTAINER] = Directory(
