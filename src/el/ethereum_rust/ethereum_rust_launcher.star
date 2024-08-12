@@ -25,6 +25,7 @@ METRICS_PORT_ID = "metrics"
 
 # Paths
 METRICS_PATH = "/metrics"
+EXECUTION_DATA_DIRPATH_ON_CLIENT_CONTAINER = "/data/ethereum_rust/execution-data"
 
 def get_used_ports(discovery_port=DISCOVERY_PORT_NUM):
     used_ports = {
@@ -196,7 +197,7 @@ def get_config(
     cmd = [
         "ethereum_rust",
         # "-{0}".format(verbosity_level),
-        # "--datadir=" + EXECUTION_DATA_DIRPATH_ON_CLIENT_CONTAINER,
+        "--datadir=" + EXECUTION_DATA_DIRPATH_ON_CLIENT_CONTAINER,
         "--network={0}".format(
             network
             if network in constants.PUBLIC_NETWORKS
