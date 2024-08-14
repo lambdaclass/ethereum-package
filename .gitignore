@@ -87,3 +87,6 @@ yarn-error.log
 
 # enclave dumps
 dump/
+
+# Dashboards
+static_files/grafana-config/dashboards/lambdaconsensus/*
