@@ -94,3 +94,6 @@ binaries
 
 # Claude file
 CLAUDE.md
+
+# Dashboards
+static_files/grafana-config/dashboards/lambdaconsensus/*
