@@ -217,7 +217,7 @@ def get_config(
         # "--ws.origins=*",
         # "--nat=extip:" + port_publisher.nat_exit_ip,
         "--authrpc.port={0}".format(ENGINE_RPC_PORT_NUM),
-        # "--authrpc.jwtsecret=" + constants.JWT_MOUNT_PATH_ON_CONTAINER,
+        "--authrpc.jwtsecret=" + constants.JWT_MOUNT_PATH_ON_CONTAINER,
         "--authrpc.addr=0.0.0.0",
         # "--metrics=0.0.0.0:{0}".format(METRICS_PORT_NUM),
         # "--discovery.port={0}".format(discovery_port),
