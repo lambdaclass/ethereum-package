@@ -9,7 +9,7 @@ nethermind = import_module("./nethermind/nethermind_launcher.star")
 reth = import_module("./reth/reth_launcher.star")
 ethereumjs = import_module("./ethereumjs/ethereumjs_launcher.star")
 nimbus_eth1 = import_module("./nimbus-eth1/nimbus_launcher.star")
-
+ethereum_rust = import_module("./ethereum_rust/ethereum_rust_launcher.star")
 
 def launch(
     plan,
@@ -106,6 +106,14 @@ def launch(
                 network_params.network,
             ),
             "launch_method": nimbus_eth1.launch,
+        },
+        constants.EL_TYPE.ethereumrust: {
+            "launcher": ethereum_rust.new_ethereum_rust_launcher(
+                el_cl_data,
+                jwt_file,
+                network_params.network,
+            ),
+            "launch_method": ethereum_rust.launch,
         },
     }
 
