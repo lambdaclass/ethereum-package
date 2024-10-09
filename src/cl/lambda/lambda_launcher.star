@@ -256,6 +256,7 @@ def get_beacon_config(
         "--network={0}".format(
             network if network in constants.PUBLIC_NETWORKS else "custom"
         ),
+        "--log-level=" + log_level
         "--datadir=" + BEACON_DATA_DIRPATH_ON_SERVICE_CONTAINER,
         "--beacon-api-port={0}".format(BEACON_HTTP_PORT_NUM),
         "--discovery-port={0}".format(BEACON_DISCOVERY_PORT_NUM),
