@@ -4,6 +4,7 @@ el_context = import_module("../../el/el_context.star")
 el_admin_node_info = import_module("../../el/el_admin_node_info.star")
 node_metrics = import_module("../../node_metrics_info.star")
 constants = import_module("../../package_io/constants.star")
+el_shared = import_module("../el_shared.star")
 
 RPC_PORT_NUM = 8545
 WS_PORT_NUM = 8546
@@ -62,28 +63,52 @@ VERBOSITY_LEVELS = {
 }
 
 
+#            plan,
+#            el_launcher,
+#            el_service_name,
+#            participant.el_image,
+#            participant.el_log_level,
+#            global_log_level,
+#            all_el_contexts,
+#            participant.el_min_cpu,
+#            participant.el_max_cpu,
+#            participant.el_min_mem,
+#            participant.el_max_mem,
+#            participant.el_extra_params,
+#            participant.el_extra_env_vars,
+#            participant.el_extra_labels,
+#            persistent,
+#            participant.el_volume_size,
+#            tolerations,
+#            node_selectors,
+#            port_publisher,
+
+
 def launch(
     plan,
     launcher,
     service_name,
-    image,
-    participant_log_level,
+    participant,
     global_log_level,
     # If empty then the node will be launched as a bootnode
     existing_el_clients,
-    el_min_cpu,
-    el_max_cpu,
-    el_min_mem,
-    el_max_mem,
-    extra_params,
-    extra_env_vars,
-    extra_labels,
     persistent,
-    el_volume_size,
     tolerations,
     node_selectors,
     port_publisher,
+    participant_index
 ):
+    image = participant.el_image
+    participant_log_level = participant.el_log_level
+    el_min_cpu = participant.el_min_cpu
+    el_max_cpu = participant.el_max_cpu
+    el_min_mem = participant.el_min_mem
+    el_max_mem = participant.el_max_mem
+    extra_params = participant.el_extra_params
+    extra_env_vars = participant.el_extra_env_vars
+    extra_labels = participant.el_extra_env_vars
+    el_volume_size = participant.el_volume_size
+
     log_level = input_parser.get_client_log_level_or_default(
         participant_log_level, global_log_level, VERBOSITY_LEVELS
     )
@@ -133,6 +158,7 @@ def launch(
         tolerations,
         node_selectors,
         port_publisher,
+        participant_index
     )
 
     service = plan.add_service(service_name, config)
@@ -144,16 +170,23 @@ def launch(
         service_name, METRICS_PATH, metric_url
     )
 
+    # fail(metrics_info)
+
+    http_url = "http://{0}:{1}".format(service.ip_address, RPC_PORT_NUM)
+    ws_url = "ws://{0}:{1}".format(service.ip_address, WS_PORT_NUM)
+
     return el_context.new_el_context(
-        "ethrex",
-        "",  # ethrex has no enr?
-        enode,
-        service.ip_address,
-        RPC_PORT_NUM,
-        WS_PORT_NUM,
-        ENGINE_RPC_PORT_NUM,
-        service_name,
-        [metrics_info],
+        client_name="ethrex",
+        enode=enode,
+        ip_addr=service.ip_address,
+        rpc_port_num=RPC_PORT_NUM,
+        ws_port_num=WS_PORT_NUM,
+        engine_rpc_port_num=ENGINE_RPC_PORT_NUM,
+        rpc_http_url=http_url,
+        ws_url=ws_url,
+        enr="", # ethrex has no enr?
+        service_name=service_name,
+        el_metrics_info=[metrics_info],
     )
 
 
@@ -179,20 +212,35 @@ def get_config(
     tolerations,
     node_selectors,
     port_publisher,
+    participant_index
 ):
     public_ports = {}
     discovery_port = DISCOVERY_PORT_NUM
-    if port_publisher.public_port_start:
-        discovery_port = port_publisher.el_start + len(existing_el_clients)
-        public_ports = {
-            TCP_DISCOVERY_PORT_ID: shared_utils.new_port_spec(
-                discovery_port, shared_utils.TCP_PROTOCOL
-            ),
-            UDP_DISCOVERY_PORT_ID: shared_utils.new_port_spec(
-                discovery_port, shared_utils.UDP_PROTOCOL
-            ),
+    if port_publisher.el_enabled:
+        public_ports_for_component = shared_utils.get_public_ports_for_component(
+            "el", port_publisher, participant_index
+        )
+        public_ports, discovery_port = el_shared.get_general_el_public_port_specs(
+            public_ports_for_component
+        )
+        additional_public_port_assignments = {
+            constants.RPC_PORT_ID: public_ports_for_component[2],
+            constants.WS_PORT_ID: public_ports_for_component[3],
+            constants.METRICS_PORT_ID: public_ports_for_component[4],
         }
-    used_ports = get_used_ports(discovery_port)
+        public_ports.update(
+            shared_utils.get_port_specs(additional_public_port_assignments)
+        )
+
+    used_port_assignments = {
+        constants.TCP_DISCOVERY_PORT_ID: discovery_port,
+        constants.UDP_DISCOVERY_PORT_ID: discovery_port,
+        constants.ENGINE_RPC_PORT_ID: ENGINE_RPC_PORT_NUM,
+        constants.RPC_PORT_ID: RPC_PORT_NUM,
+        constants.WS_PORT_ID: WS_PORT_NUM,
+        constants.METRICS_PORT_ID: METRICS_PORT_NUM,
+    }
+    used_ports = shared_utils.get_port_specs(used_port_assignments)
 
     cmd = [
         "ethrex",
