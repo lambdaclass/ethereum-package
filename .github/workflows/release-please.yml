@@ -1,15 +1,21 @@
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+
+permissions:
+  contents: write
+  pull-requests: write
 
 name: release-please
+
 jobs:
   release-please:
-    name: "Release please"
     runs-on: ubuntu-latest
     steps:
-      - uses: google-github-actions/release-please-action@v3
+      - name: Run Release Please
+        uses: googleapis/release-please-action@d1a8f221d7723166f48a584aebba00ef3f6febec # v4.1.4
         with:
-          release-type: simple
-          package-name: kurtosis
-          include-v-in-tag: false
+          token: ${{ secrets.PAT }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
