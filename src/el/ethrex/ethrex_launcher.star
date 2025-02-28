@@ -85,7 +85,7 @@ def launch(
     el_max_mem = participant.el_max_mem
     extra_params = participant.el_extra_params
     extra_env_vars = participant.el_extra_env_vars
-    extra_labels = participant.el_extra_env_vars
+    extra_labels = participant.el_extra_labels
     el_volume_size = participant.el_volume_size
 
     log_level = input_parser.get_client_log_level_or_default(
