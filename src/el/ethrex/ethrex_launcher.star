@@ -63,27 +63,6 @@ VERBOSITY_LEVELS = {
 }
 
 
-#            plan,
-#            el_launcher,
-#            el_service_name,
-#            participant.el_image,
-#            participant.el_log_level,
-#            global_log_level,
-#            all_el_contexts,
-#            participant.el_min_cpu,
-#            participant.el_max_cpu,
-#            participant.el_min_mem,
-#            participant.el_max_mem,
-#            participant.el_extra_params,
-#            participant.el_extra_env_vars,
-#            participant.el_extra_labels,
-#            persistent,
-#            participant.el_volume_size,
-#            tolerations,
-#            node_selectors,
-#            port_publisher,
-
-
 def launch(
     plan,
     launcher,
@@ -214,33 +193,9 @@ def get_config(
     port_publisher,
     participant_index
 ):
-    public_ports = {}
-    discovery_port = DISCOVERY_PORT_NUM
-    if port_publisher.el_enabled:
-        public_ports_for_component = shared_utils.get_public_ports_for_component(
-            "el", port_publisher, participant_index
-        )
-        public_ports, discovery_port = el_shared.get_general_el_public_port_specs(
-            public_ports_for_component
-        )
-        additional_public_port_assignments = {
-            constants.RPC_PORT_ID: public_ports_for_component[2],
-            constants.WS_PORT_ID: public_ports_for_component[3],
-            constants.METRICS_PORT_ID: public_ports_for_component[4],
-        }
-        public_ports.update(
-            shared_utils.get_port_specs(additional_public_port_assignments)
-        )
 
-    used_port_assignments = {
-        constants.TCP_DISCOVERY_PORT_ID: discovery_port,
-        constants.UDP_DISCOVERY_PORT_ID: discovery_port,
-        constants.ENGINE_RPC_PORT_ID: ENGINE_RPC_PORT_NUM,
-        constants.RPC_PORT_ID: RPC_PORT_NUM,
-        constants.WS_PORT_ID: WS_PORT_NUM,
-        constants.METRICS_PORT_ID: METRICS_PORT_NUM,
-    }
-    used_ports = shared_utils.get_port_specs(used_port_assignments)
+    used_ports = get_used_ports()
+    public_ports = used_ports
 
     cmd = [
         "ethrex",
