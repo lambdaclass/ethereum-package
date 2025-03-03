@@ -6,6 +6,12 @@ HTTP_APPLICATION_PROTOCOL = "http"
 NOT_PROVIDED_APPLICATION_PROTOCOL = ""
 NOT_PROVIDED_WAIT = "not-provided-wait"
 
+MAX_PORTS_PER_CL_NODE = 5
+MAX_PORTS_PER_EL_NODE = 5
+MAX_PORTS_PER_VC_NODE = 3
+MAX_PORTS_PER_REMOTE_SIGNER_NODE = 2
+MAX_PORTS_PER_ADDITIONAL_SERVICE = 2
+
 
 def new_template_and_data(template, template_data_json):
     return struct(template=template, data=template_data_json)
@@ -66,15 +72,30 @@ def zfill_custom(value, width):
 
 
 def label_maker(
-    client, client_type, connected_client, extra_labels
-):  # add image back later
+    client, client_type, image, connected_client, extra_labels, supernode=False
+):
+    # Extract sha256 hash if present
+    sha256 = ""
+    if "@sha256:" in image:
+        sha256 = image.split("@sha256:")[-1][:8]
+
+    # Create the labels dictionary
     labels = {
         "ethereum-package.client": client,
         "ethereum-package.client-type": client_type,
-        # "ethereum-package.client-image": image.replace("/", "-").replace(":", "-"),
+        "ethereum-package.client-image": ensure_alphanumeric_bounds(
+            image.replace("/", "-").replace(":", "_").replace(".", "-").split("@")[0]
+        ),  # drop the sha256 part of the image from the label
+        "ethereum-package.sha256": sha256,
         "ethereum-package.connected-client": connected_client,
     }
-    labels.update(extra_labels)  # Add extra_labels to the labels dictionary
+
+    if supernode:
+        labels["ethereum-package.supernode"] = str(supernode)
+
+    # Add extra_labels to the labels dictionary
+    labels.update(extra_labels)
+
     return labels
 
 
@@ -84,7 +105,7 @@ def get_devnet_enodes(plan, filename):
         files={constants.GENESIS_DATA_MOUNTPOINT_ON_CLIENTS: filename},
         wait=None,
         run="""
-with open("/network-configs/bootnode.txt") as bootnode_file:
+with open("/network-configs/enodes.txt") as bootnode_file:
     bootnodes = []
     for line in bootnode_file:
         line = line.strip()
@@ -182,7 +203,7 @@ print(int(time.time()+padding), end="")
     return result.output
 
 
-def calculate_devnet_url(network):
+def calculate_devnet_url(network, repo):
     sf_suffix_mapping = {"hsf": "-hsf-", "gsf": "-gsf-", "ssf": "-ssf-"}
     shadowfork = "sf-" in network
 
@@ -201,8 +222,8 @@ def calculate_devnet_url(network):
         devnet_name.split("-")[1] + "-" if len(devnet_name.split("-")) > 1 else ""
     )
 
-    return "github.com/ethpandaops/{0}-devnets/network-configs/{1}{2}-{3}".format(
-        devnet_category, devnet_subname, network_type, devnet_number
+    return "github.com/{0}/{1}-devnets/network-configs/{2}{3}-{4}/metadata".format(
+        repo, devnet_category, devnet_subname, network_type, devnet_number
     )
 
 
@@ -221,3 +242,153 @@ def get_client_names(participant, index, participant_contexts, participant_confi
         )
     )
     return full_name, cl_client, el_client, participant_config
+
+
+def get_public_ports_for_component(
+    component, port_publisher_params, participant_index=None
+):
+    public_port_range = ()
+    if component == "cl":
+        public_port_range = __get_port_range(
+            port_publisher_params.cl_public_port_start,
+            MAX_PORTS_PER_CL_NODE,
+            participant_index,
+        )
+    elif component == "el":
+        public_port_range = __get_port_range(
+            port_publisher_params.el_public_port_start,
+            MAX_PORTS_PER_EL_NODE,
+            participant_index,
+        )
+    elif component == "vc":
+        public_port_range = __get_port_range(
+            port_publisher_params.vc_public_port_start,
+            MAX_PORTS_PER_VC_NODE,
+            participant_index,
+        )
+    elif component == "remote-signer":
+        public_port_range = __get_port_range(
+            port_publisher_params.remote_signer_public_port_start,
+            MAX_PORTS_PER_REMOTE_SIGNER_NODE,
+            participant_index,
+        )
+    elif component == "additional_services":
+        public_port_range = __get_port_range(
+            port_publisher_params.additional_services_public_port_start,
+            MAX_PORTS_PER_ADDITIONAL_SERVICE,
+            participant_index,
+        )
+    return [port for port in range(public_port_range[0], public_port_range[1], 1)]
+
+
+def __get_port_range(port_start, max_ports_per_component, participant_index):
+    if participant_index == 0:
+        public_port_start = port_start
+        public_port_end = public_port_start + max_ports_per_component
+    else:
+        public_port_start = port_start + (max_ports_per_component * participant_index)
+        public_port_end = public_port_start + max_ports_per_component
+    return (public_port_start, public_port_end)
+
+
+def get_port_specs(port_assignments):
+    ports = {}
+    for port_id, port in port_assignments.items():
+        if port_id in [
+            constants.TCP_DISCOVERY_PORT_ID,
+            constants.RPC_PORT_ID,
+            constants.ENGINE_RPC_PORT_ID,
+            constants.ENGINE_WS_PORT_ID,
+            constants.WS_RPC_PORT_ID,
+            constants.LITTLE_BIGTABLE_PORT_ID,
+            constants.WS_PORT_ID,
+            constants.PROFILING_PORT_ID,
+        ]:
+            ports.update({port_id: new_port_spec(port, TCP_PROTOCOL)})
+        elif port_id == constants.UDP_DISCOVERY_PORT_ID:
+            ports.update({port_id: new_port_spec(port, UDP_PROTOCOL)})
+        elif port_id in [
+            constants.HTTP_PORT_ID,
+            constants.METRICS_PORT_ID,
+            constants.VALIDATOR_HTTP_PORT_ID,
+            constants.ADMIN_PORT_ID,
+            constants.VALDIATOR_GRPC_PORT_ID,
+            constants.RBUILDER_PORT_ID,
+        ]:
+            ports.update(
+                {port_id: new_port_spec(port, TCP_PROTOCOL, HTTP_APPLICATION_PROTOCOL)}
+            )
+    return ports
+
+
+def get_additional_service_standard_public_port(
+    port_publisher, port_id, additional_service_index, port_index
+):
+    public_ports = {}
+    if port_publisher.additional_services_enabled:
+        public_ports_for_component = get_public_ports_for_component(
+            "additional_services", port_publisher, additional_service_index
+        )
+        public_ports = get_port_specs({port_id: public_ports_for_component[port_index]})
+    return public_ports
+
+
+def get_cpu_mem_resource_limits(
+    min_cpu, max_cpu, min_mem, max_mem, volume_size, network_name, client_type
+):
+    min_cpu = int(min_cpu) if int(min_cpu) > 0 else 0
+    max_cpu = int(max_cpu) if int(max_cpu) > 0 else 0
+    min_mem = int(min_mem) if int(min_mem) > 0 else 0
+    max_mem = int(max_mem) if int(max_mem) > 0 else 0
+    volume_size = (
+        int(volume_size)
+        if int(volume_size) > 0
+        else constants.VOLUME_SIZE[network_name][client_type + "_volume_size"]
+    )
+    return min_cpu, max_cpu, min_mem, max_mem, volume_size
+
+
+def docker_cache_image_calc(docker_cache_params, image):
+    if docker_cache_params.enabled:
+        if docker_cache_params.url in image:
+            return image
+        if constants.CONTAINER_REGISTRY.ghcr in image:
+            return (
+                docker_cache_params.url
+                + docker_cache_params.github_prefix
+                + "/".join(image.split("/")[1:])
+            )
+        elif constants.CONTAINER_REGISTRY.gcr in image:
+            return (
+                docker_cache_params.url
+                + docker_cache_params.gcr_prefix
+                + "/".join(image.split("/")[1:])
+            )
+        elif constants.CONTAINER_REGISTRY.dockerhub in image:
+            return (
+                docker_cache_params.url + docker_cache_params.dockerhub_prefix + image
+            )
+
+    return image
+
+
+def is_alphanumeric(c):
+    return ("a" <= c and c <= "z") or ("A" <= c and c <= "Z") or ("0" <= c and c <= "9")
+
+
+def ensure_alphanumeric_bounds(s):
+    # Trim from the start
+    start = 0
+    for i in range(len(s)):
+        if is_alphanumeric(s[i]):
+            start = i
+            break
+
+    # Trim from the end
+    end = len(s)
+    for i in range(len(s) - 1, -1, -1):
+        if is_alphanumeric(s[i]):
+            end = i + 1
+            break
+
+    return s[start:end]
