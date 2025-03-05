@@ -12,10 +12,6 @@ DISCOVERY_PORT_NUM = 30303
 ENGINE_RPC_PORT_NUM = 8551
 METRICS_PORT_NUM = 9001
 
-# The min/max CPU/memory that the execution node can use
-EXECUTION_MIN_CPU = 100
-EXECUTION_MIN_MEMORY = 256
-
 # Port IDs
 RPC_PORT_ID = "rpc"
 WS_PORT_ID = "ws"
@@ -79,10 +75,6 @@ def launch(
 ):
     image = participant.el_image
     participant_log_level = participant.el_log_level
-    el_min_cpu = participant.el_min_cpu
-    el_max_cpu = participant.el_max_cpu
-    el_min_mem = participant.el_min_mem
-    el_max_mem = participant.el_max_mem
     extra_params = participant.el_extra_params
     extra_env_vars = participant.el_extra_env_vars
     extra_labels = participant.el_extra_labels
@@ -93,26 +85,6 @@ def launch(
     )
 
     network_name = shared_utils.get_network_name(launcher.network)
-
-    el_min_cpu = int(el_min_cpu) if int(el_min_cpu) > 0 else EXECUTION_MIN_CPU
-    el_max_cpu = (
-        int(el_max_cpu)
-        if int(el_max_cpu) > 0
-        else constants.RAM_CPU_OVERRIDES[network_name]["ethrex_max_cpu"]
-    )
-    el_min_mem = int(el_min_mem) if int(el_min_mem) > 0 else EXECUTION_MIN_MEMORY
-    el_max_mem = (
-        int(el_max_mem)
-        if int(el_max_mem) > 0
-        else constants.RAM_CPU_OVERRIDES[network_name]["ethrex_max_mem"]
-    )
-
-    el_volume_size = (
-        el_volume_size
-        if int(el_volume_size) > 0
-        else constants.VOLUME_SIZE[network_name]["ethrex_volume_size"]
-    )
-
     cl_client_name = service_name.split("-")[3]
 
     config = get_config(
@@ -125,10 +97,7 @@ def launch(
         existing_el_clients,
         cl_client_name,
         log_level,
-        el_min_cpu,
-        el_max_cpu,
-        el_min_mem,
-        el_max_mem,
+        participant,
         extra_params,
         extra_env_vars,
         extra_labels,
@@ -148,8 +117,6 @@ def launch(
     metrics_info = node_metrics.new_node_metrics_info(
         service_name, METRICS_PATH, metric_url
     )
-
-    # fail(metrics_info)
 
     http_url = "http://{0}:{1}".format(service.ip_address, RPC_PORT_NUM)
     ws_url = "ws://{0}:{1}".format(service.ip_address, WS_PORT_NUM)
@@ -179,10 +146,7 @@ def get_config(
     existing_el_clients,
     cl_client_name,
     verbosity_level,
-    el_min_cpu,
-    el_max_cpu,
-    el_min_mem,
-    el_max_mem,
+    participant,
     extra_params,
     extra_env_vars,
     extra_labels,
@@ -271,29 +235,37 @@ def get_config(
     #         size=el_volume_size,
     #     )
 
-    return ServiceConfig(
-        image=image,
-        ports=used_ports,
-        public_ports=public_ports,
-        cmd=[command_str],
-        files=files,
-        entrypoint=ENTRYPOINT_ARGS,
-        private_ip_address_placeholder=constants.PRIVATE_IP_ADDRESS_PLACEHOLDER,
-        min_cpu=el_min_cpu,
-        max_cpu=el_max_cpu,
-        min_memory=el_min_mem,
-        max_memory=el_max_mem,
-        env_vars=extra_env_vars,
-        labels=shared_utils.label_maker(
+    config_args = {
+        "image": image,
+        "ports": used_ports,
+        "public_ports": public_ports,
+        "cmd": [command_str],
+        "files": files,
+        "entrypoint": ENTRYPOINT_ARGS,
+        "private_ip_address_placeholder": constants.PRIVATE_IP_ADDRESS_PLACEHOLDER,
+        "env_vars": extra_env_vars,
+        "labels": shared_utils.label_maker(
             constants.EL_TYPE.ethrex,
             constants.CLIENT_TYPES.el,
             image,
             cl_client_name,
             extra_labels,
         ),
-        tolerations=tolerations,
-        node_selectors=node_selectors,
-    )
+        "tolerations": tolerations,
+        "node_selectors": node_selectors,
+    }
+
+
+    if participant.el_min_cpu > 0:
+        config_args["min_cpu"] = participant.el_min_cpu
+    if participant.el_max_cpu > 0:
+        config_args["max_cpu"] = participant.el_max_cpu
+    if participant.el_min_mem > 0:
+        config_args["min_memory"] = participant.el_min_mem
+    if participant.el_max_mem > 0:
+        config_args["max_memory"] = participant.el_max_mem
+
+    return ServiceConfig(**config_args)
 
 
 def new_ethrex_launcher(el_cl_genesis_data, jwt_file, network):
