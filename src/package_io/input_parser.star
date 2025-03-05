@@ -4,9 +4,11 @@ genesis_constants = import_module(
     "../prelaunch_data_generator/genesis_constants/genesis_constants.star"
 )
 
+sanity_check = import_module("./sanity_check.star")
+
 DEFAULT_EL_IMAGES = {
     "geth": "ethereum/client-go:latest",
-    "erigon": "ethpandaops/erigon:devel",
+    "erigon": "ethpandaops/erigon:main",
     "nethermind": "nethermindeth/nethermind:master",
     "besu": "hyperledger/besu:latest",
     "reth": "ghcr.io/paradigmxyz/reth",
@@ -16,66 +18,89 @@ DEFAULT_EL_IMAGES = {
 }
 
 DEFAULT_CL_IMAGES = {
-    "lighthouse": "sigp/lighthouse:latest",
+    "lighthouse": "ethpandaops/lighthouse:stable",
     "teku": "consensys/teku:latest",
     "nimbus": "statusim/nimbus-eth2:multiarch-latest",
-    "prysm": "gcr.io/prysmaticlabs/prysm/beacon-chain:latest",
-    "lodestar": "chainsafe/lodestar:next",
-    "grandine": "ethpandaops/grandine:develop",
+    "prysm": "gcr.io/prysmaticlabs/prysm/beacon-chain:stable",
+    "lodestar": "chainsafe/lodestar:latest",
+    "grandine": "sifrai/grandine:stable",
+}
+
+DEFAULT_CL_IMAGES_MINIMAL = {
+    "lighthouse": "ethpandaops/lighthouse:stable",
+    "teku": "consensys/teku:latest",
+    "nimbus": "ethpandaops/nimbus-eth2:stable-minimal",
+    "prysm": "ethpandaops/prysm-beacon-chain:develop-minimal",
+    "lodestar": "chainsafe/lodestar:latest",
+    "grandine": "ethpandaops/grandine:develop-minimal",
 }
 
 DEFAULT_VC_IMAGES = {
-    "lighthouse": "sigp/lighthouse:latest",
-    "lodestar": "chainsafe/lodestar:next",
+    "lighthouse": "ethpandaops/lighthouse:stable",
+    "lodestar": "chainsafe/lodestar:latest",
     "nimbus": "statusim/nimbus-validator-client:multiarch-latest",
-    "prysm": "gcr.io/prysmaticlabs/prysm/validator:latest",
+    "prysm": "gcr.io/prysmaticlabs/prysm/validator:stable",
     "teku": "consensys/teku:latest",
-    "grandine": "sifrai/grandine:latest",
+    "grandine": "sifrai/grandine:stable",
+    "vero": "ghcr.io/serenita-org/vero:master",
 }
 
-MEV_BOOST_RELAY_DEFAULT_IMAGE = "flashbots/mev-boost-relay:0.27"
+DEFAULT_VC_IMAGES_MINIMAL = {
+    "lighthouse": "ethpandaops/lighthouse:stable",
+    "lodestar": "chainsafe/lodestar:latest",
+    "nimbus": "ethpandaops/nimbus-validator-client:stable-minimal",
+    "prysm": "ethpandaops/prysm-validator:develop-minimal",
+    "teku": "consensys/teku:latest",
+    "grandine": "ethpandaops/grandine:develop-minimal",
+    "vero": "ghcr.io/serenita-org/vero:master",
+}
 
-MEV_BOOST_RELAY_IMAGE_NON_ZERO_CAPELLA = "flashbots/mev-boost-relay:0.26"
+DEFAULT_REMOTE_SIGNER_IMAGES = {
+    "web3signer": "consensys/web3signer:latest",
+}
 
 # Placeholder value for the deneb fork epoch if electra is being run
 # TODO: This is a hack, and should be removed once we electra is rebased on deneb
 HIGH_DENEB_VALUE_FORK_VERKLE = 2000000000
 
 # MEV Params
-FLASHBOTS_MEV_BOOST_PORT = 18550
+MEV_BOOST_PORT = 18550
 MEV_BOOST_SERVICE_NAME_PREFIX = "mev-boost"
 
 # Minimum number of validators required for a network to be valid is 64
 MIN_VALIDATORS = 64
 
-DEFAULT_ADDITIONAL_SERVICES = [
-    "tx_spammer",
-    "blob_spammer",
-    "el_forkmon",
-    "beacon_metrics_gazer",
-    "dora",
-    "prometheus_grafana",
-]
+DEFAULT_ADDITIONAL_SERVICES = []
 
 ATTR_TO_BE_SKIPPED_AT_ROOT = (
     "network_params",
     "participants",
     "mev_params",
+    "blockscout_params",
+    "dora_params",
+    "docker_cache_params",
     "assertoor_params",
-    "goomy_blob_params",
+    "prometheus_params",
+    "grafana_params",
     "tx_spammer_params",
     "custom_flood_params",
     "xatu_sentry_params",
     "port_publisher",
+    "spamoor_params",
+    "spamoor_blob_params",
 )
 
 
 def input_parser(plan, input_args):
-    result = parse_network_params(input_args)
-
+    sanity_check.sanity_check(plan, input_args)
+    result = parse_network_params(plan, input_args)
     # add default eth2 input params
-    result["mev_type"] = None
-    result["mev_params"] = get_default_mev_params()
+    result["blockscout_params"] = get_default_blockscout_params()
+    result["dora_params"] = get_default_dora_params()
+    result["docker_cache_params"] = get_default_docker_cache_params()
+    result["mev_params"] = get_default_mev_params(
+        result.get("mev_type"), result["network_params"]["preset"]
+    )
     if (
         result["network_params"]["network"] == constants.NETWORK_NAME.kurtosis
         or constants.NETWORK_NAME.shadowfork in result["network_params"]["network"]
@@ -83,17 +108,20 @@ def input_parser(plan, input_args):
         result["additional_services"] = DEFAULT_ADDITIONAL_SERVICES
     else:
         result["additional_services"] = []
-    result["grafana_additional_dashboards"] = []
     result["tx_spammer_params"] = get_default_tx_spammer_params()
     result["custom_flood_params"] = get_default_custom_flood_params()
     result["disable_peer_scoring"] = False
-    result["goomy_blob_params"] = get_default_goomy_blob_params()
+    result["grafana_params"] = get_default_grafana_params()
     result["assertoor_params"] = get_default_assertoor_params()
+    result["prometheus_params"] = get_default_prometheus_params()
     result["xatu_sentry_params"] = get_default_xatu_sentry_params()
     result["persistent"] = False
     result["parallel_keystore_generation"] = False
     result["global_tolerations"] = []
     result["global_node_selectors"] = {}
+    result["port_publisher"] = get_port_publisher_params("default")
+    result["spamoor_params"] = get_default_spamoor_params()
+    result["spamoor_blob_params"] = get_default_spamoor_blob_params()
 
     if constants.NETWORK_NAME.shadowfork in result["network_params"]["network"]:
         shadow_base = result["network_params"]["network"].split("-shadowfork")[0]
@@ -113,6 +141,18 @@ def input_parser(plan, input_args):
         if attr not in ATTR_TO_BE_SKIPPED_AT_ROOT and attr in input_args:
             result[attr] = value
         # custom eth2 attributes config
+        elif attr == "blockscout_params":
+            for sub_attr in input_args["blockscout_params"]:
+                sub_value = input_args["blockscout_params"][sub_attr]
+                result["blockscout_params"][sub_attr] = sub_value
+        elif attr == "dora_params":
+            for sub_attr in input_args["dora_params"]:
+                sub_value = input_args["dora_params"][sub_attr]
+                result["dora_params"][sub_attr] = sub_value
+        elif attr == "docker_cache_params":
+            for sub_attr in input_args["docker_cache_params"]:
+                sub_value = input_args["docker_cache_params"][sub_attr]
+                result["docker_cache_params"][sub_attr] = sub_value
         elif attr == "mev_params":
             for sub_attr in input_args["mev_params"]:
                 sub_value = input_args["mev_params"][sub_attr]
@@ -125,41 +165,68 @@ def input_parser(plan, input_args):
             for sub_attr in input_args["custom_flood_params"]:
                 sub_value = input_args["custom_flood_params"][sub_attr]
                 result["custom_flood_params"][sub_attr] = sub_value
-        elif attr == "goomy_blob_params":
-            for sub_attr in input_args["goomy_blob_params"]:
-                sub_value = input_args["goomy_blob_params"][sub_attr]
-                result["goomy_blob_params"][sub_attr] = sub_value
         elif attr == "assertoor_params":
             for sub_attr in input_args["assertoor_params"]:
                 sub_value = input_args["assertoor_params"][sub_attr]
                 result["assertoor_params"][sub_attr] = sub_value
+        elif attr == "prometheus_params":
+            for sub_attr in input_args["prometheus_params"]:
+                sub_value = input_args["prometheus_params"][sub_attr]
+                result["prometheus_params"][sub_attr] = sub_value
+        elif attr == "grafana_params":
+            for sub_attr in input_args["grafana_params"]:
+                sub_value = input_args["grafana_params"][sub_attr]
+                result["grafana_params"][sub_attr] = sub_value
         elif attr == "xatu_sentry_params":
             for sub_attr in input_args["xatu_sentry_params"]:
                 sub_value = input_args["xatu_sentry_params"][sub_attr]
                 result["xatu_sentry_params"][sub_attr] = sub_value
         elif attr == "port_publisher":
-            for sub_attr in input_args["port_publisher"]:
-                sub_value = input_args["port_publisher"][sub_attr]
-                result["port_publisher"][sub_attr] = sub_value
+            result["port_publisher"] = get_port_publisher_params("user", input_args)
+        elif attr == "spamoor_params":
+            for sub_attr in input_args["spamoor_params"]:
+                sub_value = input_args["spamoor_params"][sub_attr]
+                result["spamoor_params"][sub_attr] = sub_value
+        elif attr == "spamoor_blob_params":
+            for sub_attr in input_args["spamoor_blob_params"]:
+                sub_value = input_args["spamoor_blob_params"][sub_attr]
+                result["spamoor_blob_params"][sub_attr] = sub_value
+        elif attr == "ethereum_genesis_generator_params":
+            for sub_attr in input_args["ethereum_genesis_generator_params"]:
+                sub_value = input_args["ethereum_genesis_generator_params"][sub_attr]
+                result["ethereum_genesis_generator_params"][sub_attr] = sub_value
 
     if result.get("disable_peer_scoring"):
         result = enrich_disable_peer_scoring(result)
 
-    if result.get("mev_type") in ("mock", "full"):
+    if result.get("mev_type") in (
+        constants.MOCK_MEV_TYPE,
+        constants.FLASHBOTS_MEV_TYPE,
+        constants.MEV_RS_MEV_TYPE,
+        constants.COMMIT_BOOST_MEV_TYPE,
+    ):
         result = enrich_mev_extra_params(
             result,
             MEV_BOOST_SERVICE_NAME_PREFIX,
-            FLASHBOTS_MEV_BOOST_PORT,
+            MEV_BOOST_PORT,
             result.get("mev_type"),
         )
+    elif result.get("mev_type") == None:
+        pass
+    else:
+        fail(
+            "Unsupported MEV type: {0}, please use 'mock', 'flashbots', 'mev-rs' or 'commit-boost' type".format(
+                result.get("mev_type")
+            )
+        )
+
+    if result["docker_cache_params"]["enabled"]:
+        docker_cache_image_override(plan, result)
+    else:
+        plan.print("Docker cache is disabled")
 
     if result["port_publisher"]["nat_exit_ip"] == "auto":
         result["port_publisher"]["nat_exit_ip"] = get_public_ip(plan)
-
-    if result["port_publisher"]["public_port_start"] != None:
-        start = result["port_publisher"]["public_port_start"]
-        result["port_publisher"]["el_start"] = start
-        result["port_publisher"]["cl_start"] = start + len(result["participants"])
 
     return struct(
         participants=[
@@ -188,7 +255,17 @@ def input_parser(plan, input_args):
                 vc_extra_params=participant["vc_extra_params"],
                 vc_extra_env_vars=participant["vc_extra_env_vars"],
                 vc_extra_labels=participant["vc_extra_labels"],
+                use_remote_signer=participant["use_remote_signer"],
+                remote_signer_type=participant["remote_signer_type"],
+                remote_signer_image=participant["remote_signer_image"],
+                remote_signer_tolerations=participant["remote_signer_tolerations"],
+                remote_signer_extra_env_vars=participant[
+                    "remote_signer_extra_env_vars"
+                ],
+                remote_signer_extra_params=participant["remote_signer_extra_params"],
+                remote_signer_extra_labels=participant["remote_signer_extra_labels"],
                 builder_network_params=participant["builder_network_params"],
+                supernode=participant["supernode"],
                 el_min_cpu=participant["el_min_cpu"],
                 el_max_cpu=participant["el_max_cpu"],
                 el_min_mem=participant["el_min_mem"],
@@ -201,6 +278,10 @@ def input_parser(plan, input_args):
                 vc_max_cpu=participant["vc_max_cpu"],
                 vc_min_mem=participant["vc_min_mem"],
                 vc_max_mem=participant["vc_max_mem"],
+                remote_signer_min_cpu=participant["remote_signer_min_cpu"],
+                remote_signer_max_cpu=participant["remote_signer_max_cpu"],
+                remote_signer_min_mem=participant["remote_signer_min_mem"],
+                remote_signer_max_mem=participant["remote_signer_max_mem"],
                 validator_count=participant["validator_count"],
                 tolerations=participant["tolerations"],
                 node_selectors=participant["node_selectors"],
@@ -236,23 +317,57 @@ def input_parser(plan, input_args):
             ],
             seconds_per_slot=result["network_params"]["seconds_per_slot"],
             genesis_delay=result["network_params"]["genesis_delay"],
-            max_churn=result["network_params"]["max_churn"],
+            genesis_gaslimit=result["network_params"]["genesis_gaslimit"],
+            max_per_epoch_activation_churn_limit=result["network_params"][
+                "max_per_epoch_activation_churn_limit"
+            ],
+            churn_limit_quotient=result["network_params"]["churn_limit_quotient"],
             ejection_balance=result["network_params"]["ejection_balance"],
             eth1_follow_distance=result["network_params"]["eth1_follow_distance"],
+            altair_fork_epoch=result["network_params"]["altair_fork_epoch"],
+            bellatrix_fork_epoch=result["network_params"]["bellatrix_fork_epoch"],
+            capella_fork_epoch=result["network_params"]["capella_fork_epoch"],
             deneb_fork_epoch=result["network_params"]["deneb_fork_epoch"],
             electra_fork_epoch=result["network_params"]["electra_fork_epoch"],
+            fulu_fork_epoch=result["network_params"]["fulu_fork_epoch"],
+            eip7732_fork_epoch=result["network_params"]["eip7732_fork_epoch"],
+            eip7805_fork_epoch=result["network_params"]["eip7805_fork_epoch"],
             network=result["network_params"]["network"],
             min_validator_withdrawability_delay=result["network_params"][
                 "min_validator_withdrawability_delay"
             ],
             shard_committee_period=result["network_params"]["shard_committee_period"],
             network_sync_base_url=result["network_params"]["network_sync_base_url"],
+            data_column_sidecar_subnet_count=result["network_params"][
+                "data_column_sidecar_subnet_count"
+            ],
+            samples_per_slot=result["network_params"]["samples_per_slot"],
+            custody_requirement=result["network_params"]["custody_requirement"],
+            max_blobs_per_block_electra=result["network_params"][
+                "max_blobs_per_block_electra"
+            ],
+            target_blobs_per_block_electra=result["network_params"][
+                "target_blobs_per_block_electra"
+            ],
+            max_blobs_per_block_fulu=result["network_params"][
+                "max_blobs_per_block_fulu"
+            ],
+            target_blobs_per_block_fulu=result["network_params"][
+                "target_blobs_per_block_fulu"
+            ],
             preset=result["network_params"]["preset"],
+            additional_preloaded_contracts=result["network_params"][
+                "additional_preloaded_contracts"
+            ],
+            devnet_repo=result["network_params"]["devnet_repo"],
+            prefunded_accounts=result["network_params"]["prefunded_accounts"],
+            gossip_max_size=result["network_params"]["gossip_max_size"],
         ),
         mev_params=struct(
             mev_relay_image=result["mev_params"]["mev_relay_image"],
             mev_builder_image=result["mev_params"]["mev_builder_image"],
             mev_builder_cl_image=result["mev_params"]["mev_builder_cl_image"],
+            mev_builder_extra_data=result["mev_params"]["mev_builder_extra_data"],
             mev_boost_image=result["mev_params"]["mev_boost_image"],
             mev_boost_args=result["mev_params"]["mev_boost_args"],
             mev_relay_api_extra_args=result["mev_params"]["mev_relay_api_extra_args"],
@@ -268,13 +383,52 @@ def input_parser(plan, input_args):
             mev_flood_seconds_per_bundle=result["mev_params"][
                 "mev_flood_seconds_per_bundle"
             ],
+            mock_mev_image=result["mev_params"]["mock_mev_image"],
+        )
+        if result["mev_params"]
+        else None,
+        blockscout_params=struct(
+            image=result["blockscout_params"]["image"],
+            verif_image=result["blockscout_params"]["verif_image"],
+            frontend_image=result["blockscout_params"]["frontend_image"],
+        ),
+        dora_params=struct(
+            image=result["dora_params"]["image"],
+            env=result["dora_params"]["env"],
+        ),
+        docker_cache_params=struct(
+            enabled=result["docker_cache_params"]["enabled"],
+            url=result["docker_cache_params"]["url"],
+            dockerhub_prefix=result["docker_cache_params"]["dockerhub_prefix"],
+            github_prefix=result["docker_cache_params"]["github_prefix"],
+            google_prefix=result["docker_cache_params"]["google_prefix"],
         ),
         tx_spammer_params=struct(
+            image=result["tx_spammer_params"]["image"],
             tx_spammer_extra_args=result["tx_spammer_params"]["tx_spammer_extra_args"],
         ),
-        goomy_blob_params=struct(
-            goomy_blob_args=result["goomy_blob_params"]["goomy_blob_args"],
+        prometheus_params=struct(
+            storage_tsdb_retention_time=result["prometheus_params"][
+                "storage_tsdb_retention_time"
+            ],
+            storage_tsdb_retention_size=result["prometheus_params"][
+                "storage_tsdb_retention_size"
+            ],
+            min_cpu=result["prometheus_params"]["min_cpu"],
+            max_cpu=result["prometheus_params"]["max_cpu"],
+            min_mem=result["prometheus_params"]["min_mem"],
+            max_mem=result["prometheus_params"]["max_mem"],
+            image=result["prometheus_params"]["image"],
         ),
+        grafana_params=struct(
+            additional_dashboards=result["grafana_params"]["additional_dashboards"],
+            min_cpu=result["grafana_params"]["min_cpu"],
+            max_cpu=result["grafana_params"]["max_cpu"],
+            min_mem=result["grafana_params"]["min_mem"],
+            max_mem=result["grafana_params"]["max_mem"],
+            image=result["grafana_params"]["image"],
+        ),
+        apache_port=result["apache_port"],
         assertoor_params=struct(
             image=result["assertoor_params"]["image"],
             run_stability_check=result["assertoor_params"]["run_stability_check"],
@@ -296,6 +450,23 @@ def input_parser(plan, input_args):
                 "interval_between_transactions"
             ],
         ),
+        spamoor_params=struct(
+            image=result["spamoor_params"]["image"],
+            scenario=result["spamoor_params"]["scenario"],
+            throughput=result["spamoor_params"]["throughput"],
+            max_pending=result["spamoor_params"]["max_pending"],
+            max_wallets=result["spamoor_params"]["max_wallets"],
+            spamoor_extra_args=result["spamoor_params"]["spamoor_extra_args"],
+        ),
+        spamoor_blob_params=struct(
+            image=result["spamoor_blob_params"]["image"],
+            scenario=result["spamoor_blob_params"]["scenario"],
+            throughput=result["spamoor_blob_params"]["throughput"],
+            max_blobs=result["spamoor_blob_params"]["max_blobs"],
+            max_pending=result["spamoor_blob_params"]["max_pending"],
+            max_wallets=result["spamoor_blob_params"]["max_wallets"],
+            spamoor_extra_args=result["spamoor_blob_params"]["spamoor_extra_args"],
+        ),
         additional_services=result["additional_services"],
         wait_for_finalization=result["wait_for_finalization"],
         global_log_level=result["global_log_level"],
@@ -304,7 +475,6 @@ def input_parser(plan, input_args):
         ethereum_metrics_exporter_enabled=result["ethereum_metrics_exporter_enabled"],
         xatu_sentry_enabled=result["xatu_sentry_enabled"],
         parallel_keystore_generation=result["parallel_keystore_generation"],
-        grafana_additional_dashboards=result["grafana_additional_dashboards"],
         disable_peer_scoring=result["disable_peer_scoring"],
         persistent=result["persistent"],
         xatu_sentry_params=struct(
@@ -317,20 +487,74 @@ def input_parser(plan, input_args):
         global_tolerations=result["global_tolerations"],
         global_node_selectors=result["global_node_selectors"],
         keymanager_enabled=result["keymanager_enabled"],
+        checkpoint_sync_enabled=result["checkpoint_sync_enabled"],
+        checkpoint_sync_url=result["checkpoint_sync_url"],
+        ethereum_genesis_generator_params=struct(
+            image=result["ethereum_genesis_generator_params"]["image"],
+        ),
         port_publisher=struct(
-            public_port_start=result["port_publisher"]["public_port_start"],
             nat_exit_ip=result["port_publisher"]["nat_exit_ip"],
-            el_start=result["port_publisher"].get("el_start"),
-            cl_start=result["port_publisher"].get("cl_start"),
+            cl_enabled=result["port_publisher"]["cl"]["enabled"],
+            cl_public_port_start=result["port_publisher"]["cl"]["public_port_start"],
+            el_enabled=result["port_publisher"]["el"]["enabled"],
+            el_public_port_start=result["port_publisher"]["el"]["public_port_start"],
+            vc_enabled=result["port_publisher"]["vc"]["enabled"],
+            vc_public_port_start=result["port_publisher"]["vc"]["public_port_start"],
+            remote_signer_enabled=result["port_publisher"]["remote_signer"]["enabled"],
+            remote_signer_public_port_start=result["port_publisher"]["remote_signer"][
+                "public_port_start"
+            ],
+            additional_services_enabled=result["port_publisher"]["additional_services"][
+                "enabled"
+            ],
+            additional_services_public_port_start=result["port_publisher"][
+                "additional_services"
+            ]["public_port_start"],
         ),
     )
 
 
-def parse_network_params(input_args):
-    result = default_input_args()
+def parse_network_params(plan, input_args):
+    result = default_input_args(input_args)
+    if input_args.get("network_params", {}).get("preset") == "minimal":
+        result["network_params"] = default_minimal_network_params()
+
+    # Ensure we handle matrix participants before standard participants are handled.
+    if "participants_matrix" in input_args:
+        participants_matrix = []
+        participants = []
+
+        el_matrix = []
+        if "el" in input_args["participants_matrix"]:
+            el_matrix = input_args["participants_matrix"]["el"]
+        cl_matrix = []
+        if "cl" in input_args["participants_matrix"]:
+            cl_matrix = input_args["participants_matrix"]["cl"]
+        vc_matrix = []
+        if "vc" in input_args["participants_matrix"]:
+            vc_matrix = input_args["participants_matrix"]["vc"]
+
+        for el in el_matrix:
+            for cl in cl_matrix:
+                participant = {k: v for k, v in el.items()}
+                for k, v in cl.items():
+                    participant[k] = v
+
+                participants.append(participant)
+
+        for index, participant in enumerate(participants):
+            for vc in vc_matrix:
+                for k, v in vc.items():
+                    participants[index][k] = v
+
+        if "participants" in input_args:
+            input_args["participants"].extend(participants)
+        else:
+            input_args["participants"] = participants
+
     for attr in input_args:
         value = input_args[attr]
-        # if its insterted we use the value inserted
+        # if its inserted we use the value inserted
         if attr not in ATTR_TO_BE_SKIPPED_AT_ROOT and attr in input_args:
             result[attr] = value
         elif attr == "network_params":
@@ -356,6 +580,7 @@ def parse_network_params(input_args):
         el_type = participant["el_type"]
         cl_type = participant["cl_type"]
         vc_type = participant["vc_type"]
+        remote_signer_type = participant["remote_signer_type"]
 
         if (
             cl_type in (constants.CL_TYPE.nimbus)
@@ -392,7 +617,10 @@ def parse_network_params(input_args):
 
         cl_image = participant["cl_image"]
         if cl_image == "":
-            default_image = DEFAULT_CL_IMAGES.get(cl_type, "")
+            if result["network_params"]["preset"] == "minimal":
+                default_image = DEFAULT_CL_IMAGES_MINIMAL.get(cl_type, "")
+            else:
+                default_image = DEFAULT_CL_IMAGES.get(cl_type, "")
             if default_image == "":
                 fail(
                     "{0} received an empty image name and we don't have a default for it".format(
@@ -417,6 +645,9 @@ def parse_network_params(input_args):
             else:
                 participant["use_separate_vc"] = True
 
+        if participant["use_remote_signer"] and not participant["use_separate_vc"]:
+            fail("`use_remote_signer` requires `use_separate_vc`")
+
         if vc_type == "":
             # Defaults to matching the chosen CL client
             vc_type = cl_type
@@ -426,7 +657,10 @@ def parse_network_params(input_args):
         if vc_image == "":
             if cl_image == "" or vc_type != cl_type:
                 # If the validator client image is also empty, default to the image for the chosen CL client
-                default_image = DEFAULT_VC_IMAGES.get(vc_type, "")
+                if result["network_params"]["preset"] == "minimal":
+                    default_image = DEFAULT_VC_IMAGES_MINIMAL.get(vc_type, "")
+                else:
+                    default_image = DEFAULT_VC_IMAGES.get(vc_type, "")
             else:
                 if cl_type == "prysm":
                     default_image = cl_image.replace("beacon-chain", "validator")
@@ -443,6 +677,12 @@ def parse_network_params(input_args):
                     )
                 )
             participant["vc_image"] = default_image
+
+        remote_signer_image = participant["remote_signer_image"]
+        if remote_signer_image == "":
+            participant["remote_signer_image"] = DEFAULT_REMOTE_SIGNER_IMAGES.get(
+                remote_signer_type, ""
+            )
 
         snooper_enabled = participant["snooper_enabled"]
         if snooper_enabled == None:
@@ -487,6 +727,9 @@ def parse_network_params(input_args):
 
         vc_extra_params = participant.get("vc_extra_params", [])
         participant["vc_extra_params"] = vc_extra_params
+
+        remote_signer_extra_params = participant.get("remote_signer_extra_params", [])
+        participant["remote_signer_extra_params"] = remote_signer_extra_params
 
         total_participant_count += participant["count"]
 
@@ -543,10 +786,6 @@ def parse_network_params(input_args):
             + result["network_params"]["preset"]
             + " is not supported, it can only be mainnet or minimal"
         )
-
-    if result["network_params"]["preset"] == "minimal":
-        if result["network_params"]["deneb_fork_epoch"] > 0:
-            fail("minimal preset only supports deneb genesis fork epoch")
 
     return result
 
@@ -613,11 +852,17 @@ def get_client_node_selectors(participant_node_selectors, global_node_selectors)
     return node_selectors
 
 
-def default_input_args():
+def default_input_args(input_args):
     network_params = default_network_params()
-    participants = [default_participant()]
+    if "participants_matrix" not in input_args:
+        participants = [default_participant()]
+    else:
+        participants = []
+
+    participants_matrix = []
     return {
         "participants": participants,
+        "participants_matrix": participants_matrix,
         "network_params": network_params,
         "wait_for_finalization": False,
         "global_log_level": "info",
@@ -628,36 +873,101 @@ def default_input_args():
         "persistent": False,
         "mev_type": None,
         "xatu_sentry_enabled": False,
+        "apache_port": None,
         "global_tolerations": [],
         "global_node_selectors": {},
+        "use_remote_signer": False,
         "keymanager_enabled": False,
+        "checkpoint_sync_enabled": False,
+        "checkpoint_sync_url": "",
+        "ethereum_genesis_generator_params": get_default_ethereum_genesis_generator_params(),
         "port_publisher": {
             "nat_exit_ip": constants.PRIVATE_IP_ADDRESS_PLACEHOLDER,
             "public_port_start": None,
         },
+        "spamoor_params": get_default_spamoor_params(),
     }
 
 
 def default_network_params():
-    # this is temporary till we get params working
     return {
         "network": "kurtosis",
         "network_id": "3151908",
         "deposit_contract_address": "0x4242424242424242424242424242424242424242",
         "seconds_per_slot": 12,
         "num_validator_keys_per_node": 64,
-        "preregistered_validator_keys_mnemonic": "giant issue aisle success illegal bike spike question tent bar rely arctic volcano long crawl hungry vocal artwork sniff fantasy very lucky have athlete",
+        "preregistered_validator_keys_mnemonic": constants.DEFAULT_MNEMONIC,
         "preregistered_validator_count": 0,
         "genesis_delay": 20,
-        "max_churn": 8,
+        "genesis_gaslimit": 30000000,
+        "max_per_epoch_activation_churn_limit": 8,
+        "churn_limit_quotient": 65536,
         "ejection_balance": 16000000000,
         "eth1_follow_distance": 2048,
         "min_validator_withdrawability_delay": 256,
         "shard_committee_period": 256,
+        "altair_fork_epoch": 0,
+        "bellatrix_fork_epoch": 0,
+        "capella_fork_epoch": 0,
         "deneb_fork_epoch": 0,
-        "electra_fork_epoch": 500,
-        "network_sync_base_url": "https://ethpandaops-ethereum-node-snapshots.ams3.digitaloceanspaces.com/",
+        "electra_fork_epoch": constants.ELECTRA_FORK_EPOCH,
+        "fulu_fork_epoch": constants.FULU_FORK_EPOCH,
+        "eip7732_fork_epoch": constants.EIP7732_FORK_EPOCH,
+        "eip7805_fork_epoch": constants.EIP7805_FORK_EPOCH,
+        "network_sync_base_url": "https://snapshots.ethpandaops.io/",
+        "data_column_sidecar_subnet_count": 128,
+        "samples_per_slot": 8,
+        "custody_requirement": 4,
+        "max_blobs_per_block_electra": 9,
+        "target_blobs_per_block_electra": 6,
+        "max_blobs_per_block_fulu": 12,
+        "target_blobs_per_block_fulu": 9,
         "preset": "mainnet",
+        "additional_preloaded_contracts": {},
+        "devnet_repo": "ethpandaops",
+        "prefunded_accounts": {},
+        "gossip_max_size": 10485760,
+    }
+
+
+def default_minimal_network_params():
+    return {
+        "network": "kurtosis",
+        "network_id": "3151908",
+        "deposit_contract_address": "0x4242424242424242424242424242424242424242",
+        "seconds_per_slot": 6,
+        "num_validator_keys_per_node": 64,
+        "preregistered_validator_keys_mnemonic": constants.DEFAULT_MNEMONIC,
+        "preregistered_validator_count": 0,
+        "genesis_delay": 20,
+        "genesis_gaslimit": 30000000,
+        "max_per_epoch_activation_churn_limit": 4,
+        "churn_limit_quotient": 32,
+        "ejection_balance": 16000000000,
+        "eth1_follow_distance": 16,
+        "min_validator_withdrawability_delay": 256,
+        "shard_committee_period": 64,
+        "altair_fork_epoch": 0,
+        "bellatrix_fork_epoch": 0,
+        "capella_fork_epoch": 0,
+        "deneb_fork_epoch": 0,
+        "electra_fork_epoch": constants.ELECTRA_FORK_EPOCH,
+        "fulu_fork_epoch": constants.FULU_FORK_EPOCH,
+        "eip7732_fork_epoch": constants.EIP7732_FORK_EPOCH,
+        "eip7805_fork_epoch": constants.EIP7805_FORK_EPOCH,
+        "network_sync_base_url": "https://snapshots.ethpandaops.io/",
+        "data_column_sidecar_subnet_count": 128,
+        "samples_per_slot": 8,
+        "custody_requirement": 4,
+        "max_blobs_per_block_electra": 9,
+        "target_blobs_per_block_electra": 6,
+        "max_blobs_per_block_fulu": 12,
+        "target_blobs_per_block_fulu": 9,
+        "preset": "minimal",
+        "additional_preloaded_contracts": {},
+        "devnet_repo": "ethpandaops",
+        "prefunded_accounts": {},
+        "gossip_max_size": 10485760,
     }
 
 
@@ -687,6 +997,7 @@ def default_participant():
         "cl_max_cpu": 0,
         "cl_min_mem": 0,
         "cl_max_mem": 0,
+        "supernode": False,
         "use_separate_vc": None,
         "vc_type": "",
         "vc_image": "",
@@ -699,6 +1010,17 @@ def default_participant():
         "vc_max_cpu": 0,
         "vc_min_mem": 0,
         "vc_max_mem": 0,
+        "use_remote_signer": None,
+        "remote_signer_type": "web3signer",
+        "remote_signer_image": "",
+        "remote_signer_extra_env_vars": {},
+        "remote_signer_extra_labels": {},
+        "remote_signer_extra_params": [],
+        "remote_signer_tolerations": [],
+        "remote_signer_min_cpu": 0,
+        "remote_signer_max_cpu": 0,
+        "remote_signer_min_mem": 0,
+        "remote_signer_max_mem": 0,
         "validator_count": None,
         "node_selectors": {},
         "tolerations": [],
@@ -717,45 +1039,149 @@ def default_participant():
     }
 
 
-def get_default_mev_params():
+def get_default_blockscout_params():
     return {
-        "mev_relay_image": MEV_BOOST_RELAY_DEFAULT_IMAGE,
-        "mev_builder_image": "flashbots/builder:latest",
-        "mev_builder_cl_image": "sigp/lighthouse:latest",
-        "mev_boost_image": "flashbots/mev-boost",
-        "mev_boost_args": ["mev-boost", "--relay-check"],
-        "mev_relay_api_extra_args": [],
-        "mev_relay_housekeeper_extra_args": [],
-        "mev_relay_website_extra_args": [],
-        "mev_builder_extra_args": [],
-        "mev_flood_image": "flashbots/mev-flood",
-        "mev_flood_extra_args": [],
-        "mev_flood_seconds_per_bundle": 15,
-        "mev_builder_prometheus_config": {
-            "scrape_interval": "15s",
-            "labels": None,
-        },
+        "image": "blockscout/blockscout:latest",
+        "verif_image": "ghcr.io/blockscout/smart-contract-verifier:latest",
+        "frontend_image": "ghcr.io/blockscout/frontend:latest",
+    }
+
+
+def get_default_dora_params():
+    return {
+        "image": constants.DEFAULT_DORA_IMAGE,
+        "env": {},
+    }
+
+
+def get_default_docker_cache_params():
+    return {
+        "enabled": False,
+        "url": "",
+        "dockerhub_prefix": "/dh/",
+        "github_prefix": "/gh/",
+        "google_prefix": "/gcr/",
+    }
+
+
+def get_default_mev_params(mev_type, preset):
+    mev_relay_image = constants.DEFAULT_FLASHBOTS_RELAY_IMAGE
+    mev_builder_image = constants.DEFAULT_FLASHBOTS_BUILDER_IMAGE
+    if preset == "minimal":
+        mev_builder_cl_image = DEFAULT_CL_IMAGES_MINIMAL[constants.CL_TYPE.lighthouse]
+    else:
+        mev_builder_cl_image = DEFAULT_CL_IMAGES[constants.CL_TYPE.lighthouse]
+    mev_builder_extra_data = None
+    mev_boost_image = constants.DEFAULT_FLASHBOTS_MEV_BOOST_IMAGE
+    mev_boost_args = ["mev-boost", "--relay-check"]
+    mev_relay_api_extra_args = []
+    mev_relay_housekeeper_extra_args = []
+    mev_relay_website_extra_args = []
+    mev_builder_extra_args = []
+    mev_flood_image = "flashbots/mev-flood"
+    mev_flood_extra_args = []
+    mev_flood_seconds_per_bundle = 15
+    mev_builder_prometheus_config = {
+        "scrape_interval": "15s",
+        "labels": None,
+        "storage_tsdb_retention_time": "1d",
+        "storage_tsdb_retention_size": "512MB",
+        "min_cpu": 10,
+        "max_cpu": 1000,
+        "min_mem": 128,
+        "max_mem": 2048,
+    }
+
+    if mev_type == constants.MEV_RS_MEV_TYPE:
+        if preset == "minimal":
+            mev_relay_image = constants.DEFAULT_MEV_RS_IMAGE_MINIMAL
+            mev_builder_image = constants.DEFAULT_MEV_RS_IMAGE_MINIMAL
+            mev_builder_cl_image = DEFAULT_CL_IMAGES_MINIMAL[
+                constants.CL_TYPE.lighthouse
+            ]
+            mev_boost_image = constants.DEFAULT_MEV_RS_IMAGE_MINIMAL
+        else:
+            mev_relay_image = constants.DEFAULT_MEV_RS_IMAGE
+            mev_builder_image = constants.DEFAULT_MEV_RS_IMAGE
+            mev_builder_cl_image = DEFAULT_CL_IMAGES[constants.CL_TYPE.lighthouse]
+            mev_boost_image = constants.DEFAULT_MEV_RS_IMAGE
+        mev_builder_extra_data = "0x68656C6C6F20776F726C640A"  # "hello world\n"
+        mev_builder_extra_args = ["--mev-builder-config=" + "/config/config.toml"]
+
+    if mev_type == constants.COMMIT_BOOST_MEV_TYPE:
+        mev_relay_image = constants.DEFAULT_FLASHBOTS_RELAY_IMAGE
+        mev_builder_image = constants.DEFAULT_FLASHBOTS_BUILDER_IMAGE
+        mev_boost_image = constants.DEFAULT_COMMIT_BOOST_MEV_BOOST_IMAGE
+        mev_builder_cl_image = DEFAULT_CL_IMAGES[constants.CL_TYPE.lighthouse]
+        mev_builder_extra_data = (
+            "0x436F6D6D69742D426F6F737420F09F93BB"  # Commit-Boost 📻
+        )
+
+    if mev_type == constants.MOCK_MEV_TYPE:
+        mev_builder_image = constants.DEFAULT_MOCK_MEV_IMAGE
+        mev_boost_image = constants.DEFAULT_FLASHBOTS_MEV_BOOST_IMAGE
+
+    return {
+        "mev_relay_image": mev_relay_image,
+        "mev_builder_image": mev_builder_image,
+        "mock_mev_image": mev_builder_image
+        if mev_type == constants.MOCK_MEV_TYPE
+        else None,
+        "mev_builder_cl_image": mev_builder_cl_image,
+        "mev_builder_extra_data": mev_builder_extra_data,
+        "mev_builder_extra_args": mev_builder_extra_args,
+        "mev_boost_image": mev_boost_image,
+        "mev_boost_args": mev_boost_args,
+        "mev_relay_api_extra_args": mev_relay_api_extra_args,
+        "mev_relay_housekeeper_extra_args": mev_relay_housekeeper_extra_args,
+        "mev_relay_website_extra_args": mev_relay_website_extra_args,
+        "mev_flood_image": mev_flood_image,
+        "mev_flood_extra_args": mev_flood_extra_args,
+        "mev_flood_seconds_per_bundle": mev_flood_seconds_per_bundle,
+        "mev_builder_prometheus_config": mev_builder_prometheus_config,
     }
 
 
 def get_default_tx_spammer_params():
-    return {"tx_spammer_extra_args": []}
-
-
-def get_default_goomy_blob_params():
-    return {"goomy_blob_args": []}
+    return {
+        "image": "ethpandaops/tx-fuzz:master",
+        "tx_spammer_extra_args": [],
+    }
 
 
 def get_default_assertoor_params():
     return {
-        "image": "",
-        "run_stability_check": True,
-        "run_block_proposal_check": True,
+        "image": constants.DEFAULT_ASSERTOOR_IMAGE,
+        "run_stability_check": False,
+        "run_block_proposal_check": False,
         "run_lifecycle_test": False,
         "run_transaction_test": False,
         "run_blob_transaction_test": False,
         "run_opcodes_transaction_test": False,
         "tests": [],
+    }
+
+
+def get_default_prometheus_params():
+    return {
+        "storage_tsdb_retention_time": "1d",
+        "storage_tsdb_retention_size": "512MB",
+        "min_cpu": 10,
+        "max_cpu": 1000,
+        "min_mem": 128,
+        "max_mem": 2048,
+        "image": "prom/prometheus:latest",
+    }
+
+
+def get_default_grafana_params():
+    return {
+        "additional_dashboards": [],
+        "min_cpu": 10,
+        "max_cpu": 1000,
+        "min_mem": 128,
+        "max_mem": 2048,
+        "image": "grafana/grafana:latest",
     }
 
 
@@ -778,9 +1204,57 @@ def get_default_xatu_sentry_params():
     }
 
 
+def get_default_spamoor_params():
+    return {
+        "image": "ethpandaops/spamoor:latest",
+        "scenario": "eoatx",
+        "throughput": 1000,
+        "max_pending": 1000,
+        "max_wallets": 500,
+        "spamoor_extra_args": [],
+    }
+
+
+def get_default_spamoor_blob_params():
+    return {
+        "image": "ethpandaops/spamoor:latest",
+        "scenario": "blob-combined",
+        "throughput": 3,
+        "max_blobs": 2,
+        "max_pending": 6,
+        "max_wallets": 29,
+        "spamoor_extra_args": [],
+    }
+
+
 def get_default_custom_flood_params():
     # this is a simple script that increases the balance of the coinbase address at a cadence
     return {"interval_between_transactions": 1}
+
+
+def get_port_publisher_params(parameter_type, input_args=None):
+    port_publisher_parameters = {
+        "nat_exit_ip": "KURTOSIS_IP_ADDR_PLACEHOLDER",
+        "el": {"enabled": False, "public_port_start": 32000},
+        "cl": {"enabled": False, "public_port_start": 33000},
+        "vc": {"enabled": False, "public_port_start": 34000},
+        "remote_signer": {"enabled": False, "public_port_start": 35000},
+        "additional_services": {"enabled": False, "public_port_start": 36000},
+    }
+    if parameter_type == "default":
+        return port_publisher_parameters
+    else:
+        for setting in input_args["port_publisher"]:
+            if setting == "nat_exit_ip":
+                nat_exit_ip_value = input_args["port_publisher"][setting]
+                port_publisher_parameters[setting] = nat_exit_ip_value
+            else:
+                for sub_setting in input_args["port_publisher"][setting]:
+                    sub_setting_value = input_args["port_publisher"][setting][
+                        sub_setting
+                    ]
+                    port_publisher_parameters[setting][sub_setting] = sub_setting_value
+        return port_publisher_parameters
 
 
 def enrich_disable_peer_scoring(parsed_arguments_dict):
@@ -813,75 +1287,68 @@ def enrich_mev_extra_params(parsed_arguments_dict, mev_prefix, mev_port, mev_typ
         )
 
         if participant["cl_type"] == "lighthouse":
-            participant["vc_extra_params"].append("--builder-proposals")
             participant["cl_extra_params"].append("--builder={0}".format(mev_url))
+        if participant["vc_type"] == "lighthouse":
+            participant["vc_extra_params"].append("--builder-proposals")
         if participant["cl_type"] == "lodestar":
-            participant["vc_extra_params"].append("--builder")
             participant["cl_extra_params"].append("--builder")
             participant["cl_extra_params"].append("--builder.urls={0}".format(mev_url))
+        if participant["vc_type"] == "lodestar":
+            participant["vc_extra_params"].append("--builder")
         if participant["cl_type"] == "nimbus":
-            participant["vc_extra_params"].append("--payload-builder=true")
             participant["cl_extra_params"].append("--payload-builder=true")
             participant["cl_extra_params"].append(
                 "--payload-builder-url={0}".format(mev_url)
             )
+        if participant["vc_type"] == "nimbus":
+            participant["vc_extra_params"].append("--payload-builder=true")
         if participant["cl_type"] == "teku":
-            participant["vc_extra_params"].append(
-                "--validators-builder-registration-default-enabled=true"
-            )
             participant["cl_extra_params"].append(
                 "--builder-endpoint={0}".format(mev_url)
             )
+            participant["cl_extra_params"].append(
+                "--validators-builder-registration-default-enabled=true"
+            )
+        if participant["vc_type"] == "teku":
+            participant["vc_extra_params"].append(
+                "--validators-builder-registration-default-enabled=true"
+            )
         if participant["cl_type"] == "prysm":
-            participant["vc_extra_params"].append("--enable-builder")
             participant["cl_extra_params"].append(
                 "--http-mev-relay={0}".format(mev_url)
             )
+        if participant["vc_type"] == "prysm":
+            participant["vc_extra_params"].append("--enable-builder")
         if participant["cl_type"] == "grandine":
             participant["cl_extra_params"].append("--builder-url={0}".format(mev_url))
+
+        if participant["vc_type"] == "vero":
+            participant["vc_extra_params"].append("--use-external-builder")
 
     num_participants = len(parsed_arguments_dict["participants"])
     index_str = shared_utils.zfill_custom(
         num_participants + 1, len(str(num_participants + 1))
     )
-    if mev_type == "full":
+    if (
+        mev_type == constants.FLASHBOTS_MEV_TYPE
+        or mev_type == constants.COMMIT_BOOST_MEV_TYPE
+    ):
         mev_participant = default_participant()
-        mev_participant["el_type"] = mev_participant["el_type"] + "-builder"
+        mev_participant["el_type"] = "reth-builder"
         mev_participant.update(
             {
                 "el_image": parsed_arguments_dict["mev_params"]["mev_builder_image"],
                 "cl_image": parsed_arguments_dict["mev_params"]["mev_builder_cl_image"],
+                "cl_log_level": parsed_arguments_dict["global_log_level"],
                 "cl_extra_params": [
                     "--always-prepare-payload",
                     "--prepare-payload-lookahead",
-                    "12000",
+                    "8000",
                     "--disable-peer-scoring",
                 ],
-                # TODO(maybe) make parts of this more passable like the mev-relay-endpoint & forks
-                "el_extra_params": [
-                    "--builder",
-                    "--builder.remote_relay_endpoint=http://mev-relay-api:9062",
-                    "--builder.beacon_endpoints=http://cl-{0}-lighthouse-geth-builder:4000".format(
-                        index_str
-                    ),
-                    "--builder.bellatrix_fork_version={0}".format(
-                        constants.BELLATRIX_FORK_VERSION
-                    ),
-                    "--builder.genesis_fork_version={0}".format(
-                        constants.GENESIS_FORK_VERSION
-                    ),
-                    "--builder.genesis_validators_root={0}".format(
-                        constants.GENESIS_VALIDATORS_ROOT_PLACEHOLDER
-                    ),
-                    '--miner.extradata="Illuminate Dmocratize Dstribute"',
-                    "--builder.algotype=greedy",
-                    "--metrics.builder",
-                ]
-                + parsed_arguments_dict["mev_params"]["mev_builder_extra_args"],
-                "el_extra_env_vars": {
-                    "BUILDER_TX_SIGNING_KEY": "0x"
-                    + genesis_constants.PRE_FUNDED_ACCOUNTS[0].private_key
-                },
+                "el_extra_params": parsed_arguments_dict["mev_params"][
+                    "mev_builder_extra_args"
+                ],
                 "validator_count": 0,
                 "prometheus_config": parsed_arguments_dict["mev_params"][
                     "mev_builder_prometheus_config"
@@ -891,6 +1358,31 @@ def enrich_mev_extra_params(parsed_arguments_dict, mev_prefix, mev_port, mev_typ
 
         parsed_arguments_dict["participants"].append(mev_participant)
 
+    if mev_type == constants.MEV_RS_MEV_TYPE:
+        mev_participant = default_participant()
+        mev_participant["el_type"] = "reth-builder"
+        mev_participant.update(
+            {
+                "el_image": parsed_arguments_dict["mev_params"]["mev_builder_image"],
+                "cl_image": parsed_arguments_dict["mev_params"]["mev_builder_cl_image"],
+                "cl_log_level": parsed_arguments_dict["global_log_level"],
+                "cl_extra_params": [
+                    "--always-prepare-payload",
+                    "--prepare-payload-lookahead",
+                    "8000",
+                    "--disable-peer-scoring",
+                ],
+                "el_extra_params": parsed_arguments_dict["mev_params"][
+                    "mev_builder_extra_args"
+                ],
+                "validator_count": 0,
+            }
+        )
+        parsed_arguments_dict["participants"].append(mev_participant)
+    if mev_type == constants.MOCK_MEV_TYPE:
+        parsed_arguments_dict["mev_params"]["mock_mev_image"] = parsed_arguments_dict[
+            "mev_params"
+        ]["mock_mev_image"]
     return parsed_arguments_dict
 
 
@@ -906,6 +1398,110 @@ def deep_copy_participant(participant):
 
 def get_public_ip(plan):
     response = plan.run_sh(
+        name="get-public-ip",
+        description="Get the public IP address of the current machine",
         run="curl -s https://ident.me",
     )
     return response.output
+
+
+def docker_cache_image_override(plan, result):
+    plan.print("Docker cache is enabled, overriding image urls")
+    participant_overridable_image = [
+        "el_image",
+        "cl_image",
+        "vc_image",
+        "remote_signer_image",
+    ]
+    tooling_overridable_image = [
+        "dora_params.image",
+        "assertoor_params.image",
+        "mev_params.mev_relay_image",
+        "mev_params.mev_builder_image",
+        "mev_params.mev_builder_cl_image",
+        "mev_params.mev_boost_image",
+        "mev_params.mev_flood_image",
+        "xatu_sentry_params.xatu_sentry_image",
+        "tx_spammer_params.image",
+        "prometheus_params.image",
+        "grafana_params.image",
+        "spamoor_params.image",
+        "spamoor_blob_params.image",
+        "ethereum_genesis_generator_params.image",
+    ]
+
+    if result["docker_cache_params"]["url"] == "":
+        fail(
+            "docker_cache_params.url is empty or spaces, please provide a valid docker cache url, or disable the docker cache"
+        )
+    for index, participant in enumerate(result["participants"]):
+        for images in participant_overridable_image:
+            if result["docker_cache_params"]["url"] in participant[images]:
+                break
+            elif constants.CONTAINER_REGISTRY.ghcr in participant[images]:
+                participant[images] = (
+                    result["docker_cache_params"]["url"]
+                    + result["docker_cache_params"]["github_prefix"]
+                    + "/".join(participant[images].split("/")[1:])
+                )
+            elif constants.CONTAINER_REGISTRY.gcr in participant[images]:
+                participant[images] = (
+                    result["docker_cache_params"]["url"]
+                    + result["docker_cache_params"]["google_prefix"]
+                    + "/".join(participant[images].split("/")[1:])
+                )
+            elif constants.CONTAINER_REGISTRY.dockerhub in participant[images]:
+                participant[images] = (
+                    result["docker_cache_params"]["url"]
+                    + result["docker_cache_params"]["dockerhub_prefix"]
+                    + participant[images]
+                )
+            else:
+                plan.print(
+                    "Using local client image instead of docker cache for {0} for participant {1}".format(
+                        images, index + 1
+                    )
+                )
+
+    for tooling_image_key in tooling_overridable_image:
+        image_parts = tooling_image_key.split(".")
+        if (
+            result["docker_cache_params"]["url"]
+            in result[image_parts[0]][image_parts[1]]
+        ):
+            break
+        elif (
+            constants.CONTAINER_REGISTRY.ghcr in result[image_parts[0]][image_parts[1]]
+        ):
+            result[image_parts[0]][image_parts[1]] = (
+                result["docker_cache_params"]["url"]
+                + result["docker_cache_params"]["github_prefix"]
+                + "/".join(result[image_parts[0]][image_parts[1]].split("/")[1:])
+            )
+        elif constants.CONTAINER_REGISTRY.gcr in result[image_parts[0]][image_parts[1]]:
+            result[image_parts[0]][image_parts[1]] = (
+                result["docker_cache_params"]["url"]
+                + result["docker_cache_params"]["google_prefix"]
+                + "/".join(result[image_parts[0]][image_parts[1]].split("/")[1:])
+            )
+        elif (
+            constants.CONTAINER_REGISTRY.dockerhub
+            in result[image_parts[0]][image_parts[1]]
+        ):
+            result[image_parts[0]][image_parts[1]] = (
+                result["docker_cache_params"]["url"]
+                + result["docker_cache_params"]["dockerhub_prefix"]
+                + result[image_parts[0]][image_parts[1]]
+            )
+        else:
+            plan.print(
+                "Using local tooling image instead of docker cache for {0}".format(
+                    tooling_image_key
+                )
+            )
+
+
+def get_default_ethereum_genesis_generator_params():
+    return {
+        "image": constants.DEFAULT_ETHEREUM_GENESIS_GENERATOR_IMAGE,
+    }
