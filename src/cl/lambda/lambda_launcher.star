@@ -7,7 +7,7 @@ constants = import_module("../../package_io/constants.star")
 vc_shared = import_module("../../vc/shared.star")
 #  ---------------------------------- Beacon client -------------------------------------
 # The Docker container runs as the "grandine" user so we can't write to root
-BEACON_DATA_DIRPATH_ON_SERVICE_CONTAINER = "/data/lambda_ethereum_consensus/beacon-data"
+BEACON_DATA_DIRPATH_ON_SERVICE_CONTAINER = "/data/lambda/beacon-data"
 
 # Port IDs
 BEACON_TCP_DISCOVERY_PORT_ID = "tcp-discovery"
@@ -109,19 +109,19 @@ def launch(
     cl_max_cpu = (
         int(cl_max_cpu)
         if int(cl_max_cpu) > 0
-        else constants.RAM_CPU_OVERRIDES[network_name]["lambda_ethereum_consensus_max_cpu"]
+        else constants.RAM_CPU_OVERRIDES[network_name]["lambda_max_cpu"]
     )
     cl_min_mem = int(cl_min_mem) if int(cl_min_mem) > 0 else BEACON_MIN_MEMORY
     cl_max_mem = (
         int(cl_max_mem)
         if int(cl_max_mem) > 0
-        else constants.RAM_CPU_OVERRIDES[network_name]["lambda_ethereum_consensus_max_mem"]
+        else constants.RAM_CPU_OVERRIDES[network_name]["lambda_max_mem"]
     )
 
     cl_volume_size = (
         int(cl_volume_size)
         if int(cl_volume_size) > 0
-        else constants.VOLUME_SIZE[network_name]["lambda_ethereum_consensus_volume_size"]
+        else constants.VOLUME_SIZE[network_name]["lambda_volume_size"]
     )
 
     config = get_beacon_config(
@@ -186,7 +186,7 @@ def launch(
     )
     nodes_metrics_info = [beacon_node_metrics_info]
     return cl_context.new_cl_context(
-        "lambda_ethereum_consensus",
+        "lambda",
         beacon_node_enr,
         beacon_service.ip_address,
         beacon_http_port.number,
@@ -276,8 +276,8 @@ def get_beacon_config(
         # ^^^^^^^^^^^^^^^^^^^ METRICS CONFIG ^^^^^^^^^^^^^^^^^^^^^
     ]
     validator_default_cmd = [
-        # "--keystore-dir=" + validator_keys_dirpath,
-        # "--keystore-password-file=" + validator_secrets_dirpath,
+        "--keystore-dir=" + validator_keys_dirpath,
+        "--keystore-pass-dir=" + validator_secrets_dirpath,
         # "--suggested-fee-recipient=" + constants.VALIDATING_REWARDS_ACCOUNT,
         # "--graffiti=" + full_name,
         # "--enable-private-discovery",
@@ -379,7 +379,7 @@ def get_beacon_config(
         min_memory=cl_min_mem,
         max_memory=cl_max_mem,
         labels=shared_utils.label_maker(
-            constants.CL_TYPE.lambda_ethereum_consensus,
+            constants.CL_TYPE.lambda_eth,
             constants.CLIENT_TYPES.cl,
             image,
             el_context.client_name,
@@ -391,7 +391,7 @@ def get_beacon_config(
     )
 
 
-def new_lambda_ethereum_consensus_launcher(
+def new_lambda_launcher(
     el_cl_genesis_data,
     jwt_file,
     network,

@@ -16,7 +16,7 @@ CL_TYPE = struct(
     prysm="prysm",
     lodestar="lodestar",
     grandine="grandine",
-    lambda_ethereum_consensus="lambda-ethereum-consensus",
+    lambda_eth="lambda",
 )
 
 VC_TYPE = struct(
@@ -195,7 +195,7 @@ VOLUME_SIZE = {
         "nimbus_volume_size": 500000,  # 500GB
         "lodestar_volume_size": 500000,  # 500GB
         "grandine_volume_size": 500000,  # 500GB
-        "lambda_ethereum_consensus_volume_size": 500000,  # 500GB
+        "lambda_volume_size": 500000,  # 500GB
     },
     "sepolia": {
         "geth_volume_size": 300000,  # 300GB
@@ -212,7 +212,7 @@ VOLUME_SIZE = {
         "nimbus_volume_size": 150000,  # 150GB
         "lodestar_volume_size": 150000,  # 150GB
         "grandine_volume_size": 150000,  # 150GB
-        "lambda_ethereum_consensus_volume_size": 150000,  # 150GB
+        "lambda_volume_size": 150000,  # 150GB
     },
     "holesky": {
         "geth_volume_size": 100000,  # 100GB
@@ -229,7 +229,7 @@ VOLUME_SIZE = {
         "nimbus_volume_size": 100000,  # 100GB
         "lodestar_volume_size": 100000,  # 100GB
         "grandine_volume_size": 100000,  # 100GB
-        "lambda_ethereum_consensus_volume_size": 100000,  # 100GB
+        "lambda_volume_size": 100000,  # 100GB
     },
     "devnets": {
         "geth_volume_size": 100000,  # 100GB
@@ -246,7 +246,7 @@ VOLUME_SIZE = {
         "nimbus_volume_size": 100000,  # 100GB
         "lodestar_volume_size": 100000,  # 100GB
         "grandine_volume_size": 100000,  # 100GB
-        "lambda_ethereum_consensus_volume_size": 100000,  # 100GB
+        "lambda_volume_size": 100000,  # 100GB
     },
     "ephemery": {
         "geth_volume_size": 5000,  # 5GB
@@ -263,7 +263,7 @@ VOLUME_SIZE = {
         "nimbus_volume_size": 1000,  # 1GB
         "lodestar_volume_size": 1000,  # 1GB
         "grandine_volume_size": 1000,  # 1GB
-        "lambda_ethereum_consensus_volume_size": 1000,  # 1GB
+        "lambda_volume_size": 1000,  # 1GB
     },
     "kurtosis": {
         "geth_volume_size": 5000,  # 5GB
@@ -280,7 +280,7 @@ VOLUME_SIZE = {
         "nimbus_volume_size": 1000,  # 1GB
         "lodestar_volume_size": 1000,  # 1GB
         "grandine_volume_size": 1000,  # 1GB
-        "lambda_ethereum_consensus_volume_size": 1000,  # 1GB
+        "lambda_volume_size": 1000,  # 1GB
     },
 }
 VOLUME_SIZE["mainnet-shadowfork"] = VOLUME_SIZE["mainnet"]
