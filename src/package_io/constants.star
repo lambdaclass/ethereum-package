@@ -19,7 +19,7 @@ CL_TYPE = struct(
     lodestar="lodestar",
     grandine="grandine",
     consensoor="consensoor",
-    lambda_ethereum_consensus="lambda-ethereum-consensus",
+    lambda_eth="lambda",
 )
 
 VC_TYPE = struct(
@@ -225,7 +225,7 @@ VOLUME_SIZE = {
         "lodestar_volume_size": 500000,  # 500GB
         "grandine_volume_size": 500000,  # 500GB
         "ethrex_volume_size": 500000,  # 500GB
-        "lambda_ethereum_consensus_volume_size": 500000,  # 500GB
+        "lambda_volume_size": 500000,  # 500GB
     },
     "sepolia": {
         "geth_volume_size": 300000,  # 300GB
@@ -243,7 +243,7 @@ VOLUME_SIZE = {
         "lodestar_volume_size": 150000,  # 150GB
         "grandine_volume_size": 150000,  # 150GB
         "ethrex_volume_size": 150000,  # 150GB
-        "lambda_ethereum_consensus_volume_size": 150000,  # 150GB
+        "lambda_volume_size": 150000,  # 150GB
     },
     "holesky": {
         "geth_volume_size": 100000,  # 100GB
@@ -261,7 +261,7 @@ VOLUME_SIZE = {
         "lodestar_volume_size": 100000,  # 100GB
         "grandine_volume_size": 100000,  # 100GB
         "ethrex_volume_size": 100000,  # 100GB
-        "lambda_ethereum_consensus_volume_size": 100000,  # 100GB
+        "lambda_volume_size": 100000,  # 100GB
     },
     "devnets": {
         "geth_volume_size": 100000,  # 100GB
@@ -279,7 +279,7 @@ VOLUME_SIZE = {
         "lodestar_volume_size": 100000,  # 100GB
         "grandine_volume_size": 100000,  # 100GB
         "ethrex_volume_size": 100000,  # 100GB
-        "lambda_ethereum_consensus_volume_size": 100000,  # 100GB
+        "lambda_volume_size": 100000,  # 100GB
     },
     "ephemery": {
         "geth_volume_size": 5000,  # 5GB
@@ -297,7 +297,7 @@ VOLUME_SIZE = {
         "lodestar_volume_size": 1000,  # 1GB
         "grandine_volume_size": 1000,  # 1GB
         "ethrex_volume_size": 1000,  # 1GB
-        "lambda_ethereum_consensus_volume_size": 1000,  # 1GB
+        "lambda_volume_size": 1000,  # 1GB
     },
     "kurtosis": {
         "geth_volume_size": 5000,  # 5GB
@@ -315,7 +315,7 @@ VOLUME_SIZE = {
         "lodestar_volume_size": 1000,  # 1GB
         "grandine_volume_size": 1000,  # 1GB
         "ethrex_volume_size": 1000,  # 1GB
-        "lambda_ethereum_consensus_volume_size": 1000,  # 1GB
+        "lambda_volume_size": 1000,  # 1GB
     },
     "hoodi": {
         "geth_volume_size": 100000,  # 100GB
@@ -333,7 +333,7 @@ VOLUME_SIZE = {
         "lodestar_volume_size": 100000,  # 100GB
         "grandine_volume_size": 100000,  # 100GB
         "ethrex_volume_size": 100000,  # 100GB
-        "lambda_ethereum_consensus_volume_size": 100000,  # 100GB
+        "lambda_volume_size": 100000,  # 100GB
     },
 }
 # Language mapping for client implementations

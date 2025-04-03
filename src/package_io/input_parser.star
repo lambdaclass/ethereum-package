@@ -26,7 +26,7 @@ DEFAULT_CL_IMAGES = {
     "lodestar": "chainsafe/lodestar:latest",
     "grandine": "sifrai/grandine:stable",
     "consensoor": "ethpandaops/consensoor:main",
-    "lambda_ethereum_consensus": "lambda_ethereum_consensus:latest",
+    "lambda": "lambda_ethereum_consensus:latest",
 }
 
 DEFAULT_CL_IMAGES_MINIMAL = {
@@ -37,7 +37,7 @@ DEFAULT_CL_IMAGES_MINIMAL = {
     "lodestar": "ethpandaops/lodestar:unstable",
     "grandine": "ethpandaops/grandine:develop-minimal",
     "consensoor": "ethpandaops/consensoor:main",
-    "lambda_ethereum_consensus": "lambda_ethereum_consensus:latest",
+    "lambda": "lambda_ethereum_consensus:latest",
 }
 
 DEFAULT_VC_IMAGES = {
@@ -49,7 +49,7 @@ DEFAULT_VC_IMAGES = {
     "grandine": "sifrai/grandine:stable",
     "vero": "ghcr.io/serenita-org/vero:latest",
     "consensoor": "ethpandaops/consensoor:main",
-    "lambda_ethereum_consensus": "lambda_ethereum_consensus:latest",
+    "lambda": "lambda_ethereum_consensus:latest",
 }
 
 DEFAULT_VC_IMAGES_MINIMAL = {
@@ -1154,7 +1154,7 @@ def parse_network_params(plan, input_args):
                     constants.CL_TYPE.nimbus,
                     constants.CL_TYPE.teku,
                     constants.CL_TYPE.grandine,
-                    constants.CL_TYPE.lambda_ethereum_consensus,
+                    constants.CL_TYPE.lambda_eth,
                 )
                 and vc_type == ""
             ):
@@ -1210,10 +1210,10 @@ def parse_network_params(plan, input_args):
             )
 
         if (
-            cl_type == constants.CL_TYPE.lambda_ethereum_consensus
-            and vc_type != constants.CL_TYPE.lambda_ethereum_consensus
+            cl_type == constants.CL_TYPE.lambda_eth
+            and vc_type != constants.CL_TYPE.lambda_eth
         ):
-            fail("lambda_ethereum_consensus does not support running a different validator client")
+            fail("lambda does not support running a different validator client")
 
         snooper_enabled = participant["snooper_enabled"]
         if snooper_enabled == None:
