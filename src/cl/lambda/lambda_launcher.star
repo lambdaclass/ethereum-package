@@ -63,73 +63,46 @@ def launch(
     plan,
     launcher,
     service_name,
-    image,
-    participant_log_level,
+    participant,
     global_log_level,
     bootnode_context,
     el_context,
     full_name,
     node_keystore_files,
-    cl_min_cpu,
-    cl_max_cpu,
-    cl_min_mem,
-    cl_max_mem,
-    snooper_enabled,
     snooper_engine_context,
-    blobber_enabled,
-    blobber_extra_params,
-    extra_params,
-    extra_env_vars,
-    extra_labels,
     persistent,
-    cl_volume_size,
-    cl_tolerations,
-    participant_tolerations,
-    global_tolerations,
+    tolerations,
     node_selectors,
-    use_separate_vc,
-    keymanager_enabled,
+    checkpoint_sync_enabled,
+    checkpoint_sync_url,
     port_publisher,
+    participant_index,
 ):
     beacon_service_name = "{0}".format(service_name)
     log_level = input_parser.get_client_log_level_or_default(
-        participant_log_level, global_log_level, VERBOSITY_LEVELS
+        participant.cl_log_level, global_log_level, VERBOSITY_LEVELS
     )
 
-    tolerations = input_parser.get_client_tolerations(
-        cl_tolerations, participant_tolerations, global_tolerations
-    )
-
-    extra_params = [param for param in extra_params]
+    extra_params = [param for param in participant.cl_extra_params]
 
     network_name = shared_utils.get_network_name(launcher.network)
 
-    cl_min_cpu = int(cl_min_cpu) if int(cl_min_cpu) > 0 else BEACON_MIN_CPU
-    cl_max_cpu = (
-        int(cl_max_cpu)
-        if int(cl_max_cpu) > 0
-        else constants.RAM_CPU_OVERRIDES[network_name]["lambda_max_cpu"]
-    )
-    cl_min_mem = int(cl_min_mem) if int(cl_min_mem) > 0 else BEACON_MIN_MEMORY
-    cl_max_mem = (
-        int(cl_max_mem)
-        if int(cl_max_mem) > 0
-        else constants.RAM_CPU_OVERRIDES[network_name]["lambda_max_mem"]
-    )
+    # Default CPU and memory values
+    cl_min_cpu = participant.cl_min_cpu if participant.cl_min_cpu > 0 else BEACON_MIN_CPU
+    cl_max_cpu = participant.cl_max_cpu if participant.cl_max_cpu > 0 else 2000  # Default max CPU
+    cl_min_mem = participant.cl_min_mem if participant.cl_min_mem > 0 else BEACON_MIN_MEMORY
+    cl_max_mem = participant.cl_max_mem if participant.cl_max_mem > 0 else 4096  # Default max memory
 
-    cl_volume_size = (
-        int(cl_volume_size)
-        if int(cl_volume_size) > 0
-        else constants.VOLUME_SIZE[network_name]["lambda_volume_size"]
-    )
+    # Default volume size
+    cl_volume_size = participant.cl_volume_size if participant.cl_volume_size > 0 else 20  # Default 20GB
 
     config = get_beacon_config(
         plan,
         launcher.el_cl_genesis_data,
         launcher.jwt_file,
         launcher.network,
-        keymanager_enabled,
-        image,
+        participant.keymanager_enabled,
+        participant.cl_image,
         beacon_service_name,
         bootnode_context,
         el_context,
@@ -140,16 +113,18 @@ def launch(
         cl_max_cpu,
         cl_min_mem,
         cl_max_mem,
-        snooper_enabled,
+        participant.snooper_enabled,
         snooper_engine_context,
         extra_params,
-        extra_env_vars,
-        extra_labels,
-        use_separate_vc,
+        participant.cl_extra_env_vars,
+        participant.cl_extra_labels,
+        participant.use_separate_vc,
         persistent,
         cl_volume_size,
         tolerations,
         node_selectors,
+        checkpoint_sync_enabled,
+        checkpoint_sync_url,
     )
 
     beacon_service = plan.add_service(service_name, config)
@@ -194,7 +169,7 @@ def launch(
         beacon_service_name,
         multiaddr=beacon_multiaddr,
         peer_id=beacon_peer_id,
-        snooper_enabled=snooper_enabled,
+        snooper_enabled=participant.snooper_enabled,
         snooper_engine_context=snooper_engine_context,
         validator_keystore_files_artifact_uuid=node_keystore_files.files_artifact_uuid
         if node_keystore_files
@@ -229,6 +204,8 @@ def get_beacon_config(
     cl_volume_size,
     tolerations,
     node_selectors,
+    checkpoint_sync_enabled,
+    checkpoint_sync_url,
 ):
     validator_keys_dirpath = ""
     validator_secrets_dirpath = ""
@@ -291,7 +268,7 @@ def get_beacon_config(
     ]
 
     if network not in constants.PUBLIC_NETWORKS:
-        cmd.append("--testnet-dir=" + constants.GENESIS_CONFIG_MOUNT_PATH_ON_CONTAINER  )
+        cmd.append("--testnet-dir=" + constants.GENESIS_CONFIG_MOUNT_PATH_ON_CONTAINER)
         if (
             network == constants.NETWORK_NAME.kurtosis
             or constants.NETWORK_NAME.shadowfork in network
@@ -339,6 +316,10 @@ def get_beacon_config(
             )
     else:  # Public networks
         cmd.append("--checkpoint-sync-url=" + constants.CHECKPOINT_SYNC_URL[network])
+
+    # Add checkpoint sync params if enabled - Not Yet Implemented
+    # if checkpoint_sync_enabled and checkpoint_sync_url:
+    #     cmd.append("--checkpoint-sync-url=" + checkpoint_sync_url)
 
     if len(extra_params) > 0:
         # we do the list comprehension as the default extra_params is a proto repeated string
