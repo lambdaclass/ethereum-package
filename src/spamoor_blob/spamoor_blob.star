@@ -1,11 +1,12 @@
 shared_utils = import_module("../shared_utils/shared_utils.star")
+constants = import_module("../package_io/constants.star")
 SERVICE_NAME = "spamoor-blob"
 
 # The min/max CPU/memory that spamoor can use
 MIN_CPU = 100
 MAX_CPU = 1000
-MIN_MEMORY = 20
-MAX_MEMORY = 300
+MIN_MEMORY = 100
+MAX_MEMORY = 1000
 
 
 def launch_spamoor_blob(
@@ -14,12 +15,16 @@ def launch_spamoor_blob(
     all_el_contexts,
     spamoor_params,
     global_node_selectors,
+    network_params,
+    osaka_time,
 ):
     config = get_config(
         prefunded_addresses,
         all_el_contexts,
         spamoor_params,
         global_node_selectors,
+        network_params,
+        osaka_time,
     )
     plan.add_service(SERVICE_NAME, config)
 
@@ -29,6 +34,8 @@ def get_config(
     all_el_contexts,
     spamoor_params,
     node_selectors,
+    network_params,
+    osaka_time,
 ):
     cmd = [
         "{}".format(spamoor_params.scenario),
@@ -37,6 +44,16 @@ def get_config(
             ",".join([el_context.rpc_http_url for el_context in all_el_contexts])
         ),
     ]
+
+    IMAGE_NAME = spamoor_params.image
+    if spamoor_params.image == constants.DEFAULT_SPAMOOR_BLOB_IMAGE:
+        if (
+            "peerdas" in network_params.network
+            or network_params.fulu_fork_epoch != constants.FAR_FUTURE_EPOCH
+        ):
+            IMAGE_NAME = "ethpandaops/spamoor:blob-v1"
+            cmd.append("--fulu-activation={}".format(osaka_time))
+            cmd.append("--blob-v1-percent=100")
 
     if spamoor_params.throughput != None:
         cmd.append("--throughput={}".format(spamoor_params.throughput))
@@ -54,7 +71,7 @@ def get_config(
         cmd.extend([param for param in spamoor_params.spamoor_extra_args])
 
     return ServiceConfig(
-        image=spamoor_params.image,
+        image=IMAGE_NAME,
         cmd=cmd,
         min_cpu=MIN_CPU,
         max_cpu=MAX_CPU,
