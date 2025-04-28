@@ -71,7 +71,8 @@ def launch(
     tolerations,
     node_selectors,
     port_publisher,
-    participant_index
+    participant_index,
+    network_params
 ):
     image = participant.el_image
     participant_log_level = participant.el_log_level
@@ -84,14 +85,12 @@ def launch(
         participant_log_level, global_log_level, VERBOSITY_LEVELS
     )
 
-    network_name = shared_utils.get_network_name(launcher.network)
     cl_client_name = service_name.split("-")[3]
 
     config = get_config(
         plan,
         launcher.el_cl_genesis_data,
         launcher.jwt_file,
-        launcher.network,
         image,
         service_name,
         existing_el_clients,
@@ -106,7 +105,8 @@ def launch(
         tolerations,
         node_selectors,
         port_publisher,
-        participant_index
+        participant_index,
+        network_params
     )
 
     service = plan.add_service(service_name, config)
@@ -140,7 +140,6 @@ def get_config(
     plan,
     el_cl_genesis_data,
     jwt_file,
-    network,
     image,
     service_name,
     existing_el_clients,
@@ -155,9 +154,10 @@ def get_config(
     tolerations,
     node_selectors,
     port_publisher,
-    participant_index
+    participant_index,
+    network_params
 ):
-
+    network = network_params.network
     used_ports = get_used_ports()
     public_ports = used_ports
 
@@ -268,9 +268,8 @@ def get_config(
     return ServiceConfig(**config_args)
 
 
-def new_ethrex_launcher(el_cl_genesis_data, jwt_file, network):
+def new_ethrex_launcher(el_cl_genesis_data, jwt_file):
     return struct(
         el_cl_genesis_data=el_cl_genesis_data,
-        jwt_file=jwt_file,
-        network=network,
+        jwt_file=jwt_file
     )
