@@ -71,7 +71,8 @@ def launch(
     tolerations,
     node_selectors,
     port_publisher,
-    participant_index
+    participant_index,
+    network_params
 ):
     image = participant.el_image
     participant_log_level = participant.el_log_level
