@@ -94,7 +94,6 @@ def launch(
             "launcher": ethrex.new_ethrex_launcher(
                 el_cl_data,
                 jwt_file,
-                network_params.network,
             ),
             "launch_method": ethrex.launch,
         },
