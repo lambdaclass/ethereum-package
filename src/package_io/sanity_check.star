@@ -178,6 +178,7 @@ SUBCATEGORY_PARAMS = {
         "prefunded_accounts",
         "max_payload_size",
         "perfect_peerdas_enabled",
+        "gas_limit",
     ],
     "blockscout_params": [
         "image",
@@ -230,6 +231,7 @@ SUBCATEGORY_PARAMS = {
         "mev_relay_image",
         "mev_builder_image",
         "mev_builder_cl_image",
+        "mev_builder_subsidy",
         "mev_boost_image",
         "mev_boost_args",
         "mev_relay_api_extra_args",
@@ -252,20 +254,8 @@ SUBCATEGORY_PARAMS = {
     ],
     "spamoor_params": [
         "image",
-        "scenario",
-        "throughput",
-        "max_pending",
-        "max_wallets",
-        "spamoor_extra_args",
-    ],
-    "spamoor_blob_params": [
-        "image",
-        "scenario",
-        "throughput",
-        "max_blobs",
-        "max_pending",
-        "max_wallets",
-        "spamoor_extra_args",
+        "extra_args",
+        "spammers",
     ],
     "ethereum_genesis_generator_params": [
         "image",
@@ -297,7 +287,6 @@ ADDITIONAL_SERVICES_PARAMS = [
     "apache",
     "tracoor",
     "spamoor",
-    "spamoor_blob",
 ]
 
 ADDITIONAL_CATEGORY_PARAMS = {

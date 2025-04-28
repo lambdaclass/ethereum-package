@@ -58,6 +58,7 @@ ENGINE_RPC_PORT_ID = "engine-rpc"
 ENGINE_WS_PORT_ID = "engine-ws"
 ADMIN_PORT_ID = "admin"
 RBUILDER_PORT_ID = "rbuilder-rpc"
+RBUILDER_METRICS_PORT_ID = "rbuilder-metric"
 LITTLE_BIGTABLE_PORT_ID = "littlebigtable"
 VALDIATOR_GRPC_PORT_ID = "grpc"
 
@@ -90,12 +91,12 @@ MEV_RS_MEV_TYPE = "mev-rs"
 COMMIT_BOOST_MEV_TYPE = "commit-boost"
 DEFAULT_DORA_IMAGE = "ethpandaops/dora:latest"
 DEFAULT_SPAMOOR_IMAGE = "ethpandaops/spamoor:latest"
-DEFAULT_SPAMOOR_BLOB_IMAGE = "ethpandaops/spamoor:latest"
 DEFAULT_ASSERTOOR_IMAGE = "ethpandaops/assertoor:latest"
 DEFAULT_SNOOPER_IMAGE = "ethpandaops/rpc-snooper:latest"
 DEFAULT_ETHEREUM_GENESIS_GENERATOR_IMAGE = (
-    "ethpandaops/ethereum-genesis-generator:4.0.2"
+    "ethpandaops/ethereum-genesis-generator:4.0.3"
 )
+DEFAULT_YQ_IMAGE = "linuxserver/yq"
 DEFAULT_FLASHBOTS_RELAY_IMAGE = "ethpandaops/mev-boost-relay:main"
 DEFAULT_FLASHBOTS_BUILDER_IMAGE = "ethpandaops/reth-rbuilder:develop"
 DEFAULT_FLASHBOTS_MEV_BOOST_IMAGE = "ethpandaops/mev-boost:develop"
@@ -176,7 +177,7 @@ DEPOSIT_CONTRACT_ADDRESS = {
     "mainnet": "0x00000000219ab540356cBB839Cbe05303d7705Fa",
     "sepolia": "0x7f02C3E3c98b133055B8B348B2Ac625669Ed295D",
     "holesky": "0x4242424242424242424242424242424242424242",
-    "ephemery": "0x4242424242424242424242424242424242424242",
+    "ephemery": "0x00000000219ab540356cBB839Cbe05303d7705Fa",
     "hoodi": "0x00000000219ab540356cBB839Cbe05303d7705Fa",
 }
 
