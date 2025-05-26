@@ -159,7 +159,6 @@ def get_config(
 ):
     network = network_params.network
     used_ports = get_used_ports()
-    public_ports = used_ports
 
     cmd = [
         "ethrex",
@@ -238,7 +237,7 @@ def get_config(
     config_args = {
         "image": image,
         "ports": used_ports,
-        "public_ports": public_ports,
+        "public_ports": {},
         "cmd": [command_str],
         "files": files,
         "entrypoint": ENTRYPOINT_ARGS,
