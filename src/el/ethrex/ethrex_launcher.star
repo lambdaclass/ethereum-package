@@ -24,7 +24,7 @@ METRICS_PORT_ID = "metrics"
 METRICS_PATH = "/metrics"
 EXECUTION_DATA_DIRPATH_ON_CLIENT_CONTAINER = "/data/ethrex/execution-data"
 
-def get_used_ports(discovery_port=DISCOVERY_PORT_NUM):
+def get_used_ports(discovery_port):
     used_ports = {
         RPC_PORT_ID: shared_utils.new_port_spec(
             RPC_PORT_NUM,
@@ -158,9 +158,28 @@ def get_config(
     network_params
 ):
     network = network_params.network
-    used_ports = get_used_ports()
-    public_ports = used_ports
-
+    public_ports = {}
+    discovery_port = DISCOVERY_PORT_NUM
+    if port_publisher.el_enabled:
+        public_ports_for_component = shared_utils.get_public_ports_for_component(
+            "el", port_publisher, participant_index
+        )
+        for x in public_ports_for_component:
+            plan.print(x);
+        discovery_port = public_ports_for_component[0]
+        public_port_assignments = {
+            constants.ENGINE_RPC_PORT_ID: public_ports_for_component[1],
+        }
+        public_ports = shared_utils.get_port_specs(public_port_assignments)
+        additional_public_port_assignments = {
+            constants.RPC_PORT_ID: public_ports_for_component[2],
+            #constants.WS_PORT_ID: public_ports_for_component[3],
+            #constants.METRICS_PORT_ID: public_ports_for_component[4],
+        }
+        public_ports.update(
+            shared_utils.get_port_specs(additional_public_port_assignments)
+        )
+    used_ports = get_used_ports(discovery_port) 
     cmd = [
         "ethrex",
         # "-{0}".format(verbosity_level),
