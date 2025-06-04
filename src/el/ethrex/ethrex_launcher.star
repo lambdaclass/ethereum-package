@@ -165,8 +165,6 @@ def get_config(
         public_ports_for_component = shared_utils.get_public_ports_for_component(
             "el", port_publisher, participant_index
         )
-        for x in public_ports_for_component:
-            plan.print(x)
         discovery_port = public_ports_for_component[0]
         public_port_assignments = {
             constants.ENGINE_RPC_PORT_ID: public_ports_for_component[1],
