@@ -24,7 +24,8 @@ METRICS_PORT_ID = "metrics"
 METRICS_PATH = "/metrics"
 EXECUTION_DATA_DIRPATH_ON_CLIENT_CONTAINER = "/data/ethrex/execution-data"
 
-def get_used_ports(discovery_port=DISCOVERY_PORT_NUM):
+
+def get_used_ports(discovery_port):
     used_ports = {
         RPC_PORT_ID: shared_utils.new_port_spec(
             RPC_PORT_NUM,
@@ -72,7 +73,7 @@ def launch(
     node_selectors,
     port_publisher,
     participant_index,
-    network_params
+    network_params,
 ):
     image = participant.el_image
     participant_log_level = participant.el_log_level
@@ -106,7 +107,7 @@ def launch(
         node_selectors,
         port_publisher,
         participant_index,
-        network_params
+        network_params,
     )
 
     service = plan.add_service(service_name, config)
@@ -130,7 +131,7 @@ def launch(
         engine_rpc_port_num=ENGINE_RPC_PORT_NUM,
         rpc_http_url=http_url,
         ws_url=ws_url,
-        enr="", # ethrex has no enr?
+        enr="",  # ethrex has no enr?
         service_name=service_name,
         el_metrics_info=[metrics_info],
     )
@@ -155,12 +156,29 @@ def get_config(
     node_selectors,
     port_publisher,
     participant_index,
-    network_params
+    network_params,
 ):
     network = network_params.network
-    used_ports = get_used_ports()
-    public_ports = used_ports
-
+    public_ports = {}
+    discovery_port = DISCOVERY_PORT_NUM
+    if port_publisher.el_enabled:
+        public_ports_for_component = shared_utils.get_public_ports_for_component(
+            "el", port_publisher, participant_index
+        )
+        discovery_port = public_ports_for_component[0]
+        public_port_assignments = {
+            constants.ENGINE_RPC_PORT_ID: public_ports_for_component[1],
+        }
+        public_ports = shared_utils.get_port_specs(public_port_assignments)
+        additional_public_port_assignments = {
+            constants.RPC_PORT_ID: public_ports_for_component[2],
+            # constants.WS_PORT_ID: public_ports_for_component[3],
+            # constants.METRICS_PORT_ID: public_ports_for_component[4],
+        }
+        public_ports.update(
+            shared_utils.get_port_specs(additional_public_port_assignments)
+        )
+    used_ports = get_used_ports(discovery_port)
     cmd = [
         "ethrex",
         # "-{0}".format(verbosity_level),
@@ -255,7 +273,6 @@ def get_config(
         "node_selectors": node_selectors,
     }
 
-
     if participant.el_min_cpu > 0:
         config_args["min_cpu"] = participant.el_min_cpu
     if participant.el_max_cpu > 0:
@@ -269,7 +286,4 @@ def get_config(
 
 
 def new_ethrex_launcher(el_cl_genesis_data, jwt_file):
-    return struct(
-        el_cl_genesis_data=el_cl_genesis_data,
-        jwt_file=jwt_file
-    )
+    return struct(el_cl_genesis_data=el_cl_genesis_data, jwt_file=jwt_file)
