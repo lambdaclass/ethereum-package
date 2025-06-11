@@ -32,19 +32,9 @@ def get_used_ports(discovery_port):
             shared_utils.TCP_PROTOCOL,
             shared_utils.HTTP_APPLICATION_PROTOCOL,
         ),
-        # WS_PORT_ID: shared_utils.new_port_spec(WS_PORT_NUM, shared_utils.TCP_PROTOCOL),
-        # TCP_DISCOVERY_PORT_ID: shared_utils.new_port_spec(
-        #     discovery_port, shared_utils.TCP_PROTOCOL
-        # ),
-        # UDP_DISCOVERY_PORT_ID: shared_utils.new_port_spec(
-        #     discovery_port, shared_utils.UDP_PROTOCOL
-        # ),
         ENGINE_RPC_PORT_ID: shared_utils.new_port_spec(
             ENGINE_RPC_PORT_NUM, shared_utils.TCP_PROTOCOL
         ),
-        # METRICS_PORT_ID: shared_utils.new_port_spec(
-        #     METRICS_PORT_NUM, shared_utils.TCP_PROTOCOL
-        # ),
     }
     return used_ports
 
@@ -112,7 +102,7 @@ def launch(
 
     service = plan.add_service(service_name, config)
 
-    enode = el_admin_node_info.get_enode_for_node(plan, service_name, RPC_PORT_ID)
+    enode, enr = el_admin_node_info.get_enode_enr_for_node(plan, service_name, RPC_PORT_ID)
 
     metric_url = "{0}:{1}".format(service.ip_address, METRICS_PORT_NUM)
     metrics_info = node_metrics.new_node_metrics_info(
@@ -131,7 +121,7 @@ def launch(
         engine_rpc_port_num=ENGINE_RPC_PORT_NUM,
         rpc_http_url=http_url,
         ws_url=ws_url,
-        enr="",  # ethrex has no enr?
+        enr=enr,
         service_name=service_name,
         el_metrics_info=[metrics_info],
     )
@@ -181,31 +171,17 @@ def get_config(
     used_ports = get_used_ports(discovery_port)
     cmd = [
         "ethrex",
-        # "-{0}".format(verbosity_level),
         "--datadir=" + EXECUTION_DATA_DIRPATH_ON_CLIENT_CONTAINER,
         "--network={0}".format(
             network
             if network in constants.PUBLIC_NETWORKS
             else constants.GENESIS_CONFIG_MOUNT_PATH_ON_CONTAINER + "/genesis.json"
         ),
-        # "--http",
         "--http.port={0}".format(RPC_PORT_NUM),
         "--http.addr=0.0.0.0",
-        # "--http.corsdomain=*",
-        # # WARNING: The admin info endpoint is enabled so that we can easily get ENR/enode, which means
-        # #  that users should NOT store private information in these Kurtosis nodes!
-        # "--http.api=admin,net,eth,web3,debug,trace",
-        # "--ws",
-        # "--ws.addr=0.0.0.0",
-        # "--ws.port={0}".format(WS_PORT_NUM),
-        # "--ws.api=net,eth",
-        # "--ws.origins=*",
-        # "--nat=extip:" + port_publisher.nat_exit_ip,
         "--authrpc.port={0}".format(ENGINE_RPC_PORT_NUM),
         "--authrpc.jwtsecret=" + constants.JWT_MOUNT_PATH_ON_CONTAINER,
         "--authrpc.addr=0.0.0.0",
-        # "--metrics=0.0.0.0:{0}".format(METRICS_PORT_NUM),
-        # "--discovery.port={0}".format(discovery_port),
     ]
     if network == constants.NETWORK_NAME.kurtosis:
         if len(existing_el_clients) > 0:
@@ -232,10 +208,6 @@ def get_config(
 
     cmd_str = " ".join(cmd)
     if network not in constants.PUBLIC_NETWORKS:
-        # subcommand_strs = [
-        #     init_datadir_cmd_str,
-        #     cmd_str,
-        # ]
         subcommand_strs = [cmd_str]
     else:
         subcommand_strs = [cmd_str]
@@ -246,12 +218,6 @@ def get_config(
         constants.GENESIS_DATA_MOUNTPOINT_ON_CLIENTS: el_cl_genesis_data.files_artifact_uuid,
         constants.JWT_MOUNTPOINT_ON_CLIENTS: jwt_file,
     }
-
-    # if persistent:
-    #     files[EXECUTION_DATA_DIRPATH_ON_CLIENT_CONTAINER] = Directory(
-    #         persistent_key="data-{0}".format(service_name),
-    #         size=el_volume_size,
-    #     )
 
     config_args = {
         "image": image,
