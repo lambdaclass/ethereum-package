@@ -35,6 +35,11 @@ def get_used_ports(discovery_port):
         ENGINE_RPC_PORT_ID: shared_utils.new_port_spec(
             ENGINE_RPC_PORT_NUM, shared_utils.TCP_PROTOCOL
         ),
+        METRICS_PORT_ID: shared_utils.new_port_spec(
+            METRICS_PORT_NUM,
+            shared_utils.TCP_PROTOCOL,
+            shared_utils.HTTP_APPLICATION_PROTOCOL,
+        ),
     }
     return used_ports
 
@@ -162,8 +167,7 @@ def get_config(
         public_ports = shared_utils.get_port_specs(public_port_assignments)
         additional_public_port_assignments = {
             constants.RPC_PORT_ID: public_ports_for_component[2],
-            # constants.WS_PORT_ID: public_ports_for_component[3],
-            # constants.METRICS_PORT_ID: public_ports_for_component[4],
+            constants.METRICS_PORT_ID: public_ports_for_component[3],
         }
         public_ports.update(
             shared_utils.get_port_specs(additional_public_port_assignments)
@@ -182,6 +186,9 @@ def get_config(
         "--authrpc.port={0}".format(ENGINE_RPC_PORT_NUM),
         "--authrpc.jwtsecret=" + constants.JWT_MOUNT_PATH_ON_CONTAINER,
         "--authrpc.addr=0.0.0.0",
+        "--metrics",
+        "--metrics.addr=0.0.0.0",
+        "--metrics.port={0}".format(METRICS_PORT_NUM),
     ]
     if network == constants.NETWORK_NAME.kurtosis:
         if len(existing_el_clients) > 0:
