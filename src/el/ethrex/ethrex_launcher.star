@@ -206,11 +206,7 @@ def get_config(
         cmd.extend([param for param in extra_params])
 
     cmd_str = " ".join(cmd)
-    if network not in constants.PUBLIC_NETWORKS:
-        subcommand_strs = [cmd_str]
-    else:
-        subcommand_strs = [cmd_str]
-
+    subcommand_strs = [cmd_str]
     command_str = " && ".join(subcommand_strs)
 
     files = {
