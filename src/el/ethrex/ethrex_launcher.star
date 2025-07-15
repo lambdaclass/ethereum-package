@@ -206,8 +206,7 @@ def get_config(
         cmd.extend([param for param in extra_params])
 
     cmd_str = " ".join(cmd)
-    subcommand_strs = [cmd_str]
-    command_str = " && ".join(subcommand_strs)
+    command_str = " && ".join([cmd_str])
 
     files = {
         constants.GENESIS_DATA_MOUNTPOINT_ON_CLIENTS: el_cl_genesis_data.files_artifact_uuid,
