@@ -12,14 +12,6 @@ DISCOVERY_PORT_NUM = 30303
 ENGINE_RPC_PORT_NUM = 8551
 METRICS_PORT_NUM = 9001
 
-# Port IDs
-RPC_PORT_ID = "rpc"
-WS_PORT_ID = "ws"
-TCP_DISCOVERY_PORT_ID = "tcp-discovery"
-UDP_DISCOVERY_PORT_ID = "udp-discovery"
-ENGINE_RPC_PORT_ID = "engine-rpc"
-METRICS_PORT_ID = "metrics"
-
 # Paths
 METRICS_PATH = "/metrics"
 EXECUTION_DATA_DIRPATH_ON_CLIENT_CONTAINER = "/data/ethrex/execution-data"
@@ -27,15 +19,15 @@ EXECUTION_DATA_DIRPATH_ON_CLIENT_CONTAINER = "/data/ethrex/execution-data"
 
 def get_used_ports(discovery_port):
     used_ports = {
-        RPC_PORT_ID: shared_utils.new_port_spec(
+        constants.RPC_PORT_ID: shared_utils.new_port_spec(
             RPC_PORT_NUM,
             shared_utils.TCP_PROTOCOL,
             shared_utils.HTTP_APPLICATION_PROTOCOL,
         ),
-        ENGINE_RPC_PORT_ID: shared_utils.new_port_spec(
+        constants.ENGINE_RPC_PORT_ID: shared_utils.new_port_spec(
             ENGINE_RPC_PORT_NUM, shared_utils.TCP_PROTOCOL
         ),
-        METRICS_PORT_ID: shared_utils.new_port_spec(
+        constants.METRICS_PORT_ID: shared_utils.new_port_spec(
             METRICS_PORT_NUM,
             shared_utils.TCP_PROTOCOL,
             shared_utils.HTTP_APPLICATION_PROTOCOL,
@@ -107,7 +99,7 @@ def launch(
 
     service = plan.add_service(service_name, config)
 
-    enode, enr = el_admin_node_info.get_enode_enr_for_node(plan, service_name, RPC_PORT_ID)
+    enode, enr = el_admin_node_info.get_enode_enr_for_node(plan, service_name, constants.RPC_PORT_ID)
 
     metric_url = "{0}:{1}".format(service.ip_address, METRICS_PORT_NUM)
     metrics_info = node_metrics.new_node_metrics_info(
@@ -214,12 +206,7 @@ def get_config(
         cmd.extend([param for param in extra_params])
 
     cmd_str = " ".join(cmd)
-    if network not in constants.PUBLIC_NETWORKS:
-        subcommand_strs = [cmd_str]
-    else:
-        subcommand_strs = [cmd_str]
-
-    command_str = " && ".join(subcommand_strs)
+    command_str = " && ".join([cmd_str])
 
     files = {
         constants.GENESIS_DATA_MOUNTPOINT_ON_CLIENTS: el_cl_genesis_data.files_artifact_uuid,
