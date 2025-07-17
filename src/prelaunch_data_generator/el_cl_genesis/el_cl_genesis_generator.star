@@ -84,26 +84,25 @@ def generate_el_cl_genesis_data(
         files={"/data": genesis.files_artifacts[1]},
         wait=None,
     )
-
-    prague_time = plan.run_sh(
-        name="read-prague-time",
-        description="Reading prague time from genesis",
-        run="jq .config.pragueTime /data/genesis.json | tr -d '\n'",
-        files={"/data": genesis.files_artifacts[0]},
-    )
-
     osaka_time = plan.run_sh(
         name="read-osaka-time",
         description="Reading osaka time from genesis",
-        run="jq .config.osakaTime /data/genesis.json | tr -d '\n'",
+        run="jq '.config.osakaTime' /data/genesis.json | tr -d '\n'",
+        files={"/data": genesis.files_artifacts[0]},
+    )
+
+    osaka_enabled_check = plan.run_sh(
+        name="check-osaka-enabled",
+        description="Check if osaka time is enabled (not false)",
+        run="test \"$(jq '.config.osakaTime // false' /data/genesis.json | tr -d '\n')\" != \"false\" && echo true || echo false",
         files={"/data": genesis.files_artifacts[0]},
     )
 
     result = el_cl_genesis_data.new_el_cl_genesis_data(
         genesis.files_artifacts[0],
         genesis_validators_root.output,
-        prague_time.output,
         osaka_time.output,
+        osaka_enabled_check.output == "true",
     )
 
     return result
@@ -156,15 +155,36 @@ def new_env_file_for_el_cl_genesis_data(
         "MaxBlobsPerBlockElectra": network_params.max_blobs_per_block_electra,
         "TargetBlobsPerBlockElectra": network_params.target_blobs_per_block_electra,
         "BaseFeeUpdateFractionElectra": network_params.base_fee_update_fraction_electra,
-        "MaxBlobsPerBlockFulu": network_params.max_blobs_per_block_fulu,
-        "TargetBlobsPerBlockFulu": network_params.target_blobs_per_block_fulu,
-        "BaseFeeUpdateFractionFulu": network_params.base_fee_update_fraction_fulu,
         "Preset": network_params.preset,
         "AdditionalPreloadedContractsFile": GENESIS_VALUES_PATH
         + "/"
         + GENESIS_CONTRACTS_FILENAME,
         "PrefundedAccounts": json.encode(network_params.prefunded_accounts),
         "MaxPayloadSize": network_params.max_payload_size,
+        "Bpo1Epoch": "{0}".format(network_params.bpo_1_epoch),
+        "Bpo1MaxBlobs": network_params.bpo_1_max_blobs,
+        "Bpo1TargetBlobs": network_params.bpo_1_target_blobs,
+        "Bpo1BaseFeeUpdateFraction": network_params.bpo_1_base_fee_update_fraction,
+        "Bpo2Epoch": "{0}".format(network_params.bpo_2_epoch),
+        "Bpo2MaxBlobs": network_params.bpo_2_max_blobs,
+        "Bpo2TargetBlobs": network_params.bpo_2_target_blobs,
+        "Bpo2BaseFeeUpdateFraction": network_params.bpo_2_base_fee_update_fraction,
+        "Bpo3Epoch": "{0}".format(network_params.bpo_3_epoch),
+        "Bpo3MaxBlobs": network_params.bpo_3_max_blobs,
+        "Bpo3TargetBlobs": network_params.bpo_3_target_blobs,
+        "Bpo3BaseFeeUpdateFraction": network_params.bpo_3_base_fee_update_fraction,
+        "Bpo4Epoch": "{0}".format(network_params.bpo_4_epoch),
+        "Bpo4MaxBlobs": network_params.bpo_4_max_blobs,
+        "Bpo4TargetBlobs": network_params.bpo_4_target_blobs,
+        "Bpo4BaseFeeUpdateFraction": network_params.bpo_4_base_fee_update_fraction,
+        "Bpo5Epoch": "{0}".format(network_params.bpo_5_epoch),
+        "Bpo5MaxBlobs": network_params.bpo_5_max_blobs,
+        "Bpo5TargetBlobs": network_params.bpo_5_target_blobs,
+        "Bpo5BaseFeeUpdateFraction": network_params.bpo_5_base_fee_update_fraction,
+        "WithdrawalType": "{0}".format(network_params.withdrawal_type),
+        "WithdrawalAddress": network_params.withdrawal_address,
+        "ValidatorBalance": int(network_params.validator_balance * 1000000000),
+        "MinEpochsForDataColumnSidecarsRequests": network_params.min_epochs_for_data_column_sidecars_requests,
     }
 
 
