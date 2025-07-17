@@ -113,6 +113,8 @@ def launch(
                 jwt_file,
             ),
             "launch_method": ethrex.launch,
+            "get_config": ethrex.get_config,
+            "get_el_context": ethrex.get_el_context,
         },
     }
 

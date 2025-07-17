@@ -62,34 +62,17 @@ def launch(
     participant_index,
     network_params,
 ):
-    image = participant.el_image
-    participant_log_level = participant.el_log_level
-    extra_params = participant.el_extra_params
-    extra_env_vars = participant.el_extra_env_vars
-    extra_labels = participant.el_extra_labels
-    el_volume_size = participant.el_volume_size
-
-    log_level = input_parser.get_client_log_level_or_default(
-        participant_log_level, global_log_level, VERBOSITY_LEVELS
-    )
-
     cl_client_name = service_name.split("-")[3]
 
     config = get_config(
         plan,
-        launcher.el_cl_genesis_data,
-        launcher.jwt_file,
-        image,
+        launcher,
+        participant,
         service_name,
         existing_el_clients,
         cl_client_name,
-        log_level,
-        participant,
-        extra_params,
-        extra_env_vars,
-        extra_labels,
+        global_log_level,
         persistent,
-        el_volume_size,
         tolerations,
         node_selectors,
         port_publisher,
@@ -98,53 +81,38 @@ def launch(
     )
 
     service = plan.add_service(service_name, config)
-
-    enode, enr = el_admin_node_info.get_enode_enr_for_node(plan, service_name, constants.RPC_PORT_ID)
-
-    metric_url = "{0}:{1}".format(service.ip_address, METRICS_PORT_NUM)
-    metrics_info = node_metrics.new_node_metrics_info(
-        service_name, METRICS_PATH, metric_url
-    )
-
-    http_url = "http://{0}:{1}".format(service.ip_address, RPC_PORT_NUM)
-    ws_url = "ws://{0}:{1}".format(service.ip_address, WS_PORT_NUM)
-
-    return el_context.new_el_context(
-        client_name="ethrex",
-        enode=enode,
-        ip_addr=service.ip_address,
-        rpc_port_num=RPC_PORT_NUM,
-        ws_port_num=WS_PORT_NUM,
-        engine_rpc_port_num=ENGINE_RPC_PORT_NUM,
-        rpc_http_url=http_url,
-        ws_url=ws_url,
-        enr=enr,
-        service_name=service_name,
-        el_metrics_info=[metrics_info],
+    
+    return get_el_context(
+        plan,
+        service_name,
+        service,
+        launcher,
     )
 
 
 def get_config(
     plan,
-    el_cl_genesis_data,
-    jwt_file,
-    image,
+    launcher,
+    participant,
     service_name,
     existing_el_clients,
     cl_client_name,
-    verbosity_level,
-    participant,
-    extra_params,
-    extra_env_vars,
-    extra_labels,
+    global_log_level,
     persistent,
-    el_volume_size,
     tolerations,
     node_selectors,
     port_publisher,
     participant_index,
     network_params,
 ):
+    extra_params = participant.el_extra_params
+    extra_env_vars = participant.el_extra_env_vars
+    extra_labels = participant.el_extra_labels
+    el_volume_size = participant.el_volume_size
+
+    log_level = input_parser.get_client_log_level_or_default(
+        participant.el_log_level, global_log_level, VERBOSITY_LEVELS
+    )
     network = network_params.network
     public_ports = {}
     discovery_port = DISCOVERY_PORT_NUM
@@ -167,6 +135,7 @@ def get_config(
     used_ports = get_used_ports(discovery_port)
     cmd = [
         "ethrex",
+        "--log.level=" + log_level,
         "--datadir=" + EXECUTION_DATA_DIRPATH_ON_CLIENT_CONTAINER,
         "--network={0}".format(
             network
@@ -197,7 +166,7 @@ def get_config(
         cmd.append(
             "--bootnodes="
             + shared_utils.get_devnet_enodes(
-                plan, el_cl_genesis_data.files_artifact_uuid
+                plan, launcher.el_cl_genesis_data.files_artifact_uuid
             )
         )
 
@@ -209,12 +178,12 @@ def get_config(
     command_str = " && ".join([cmd_str])
 
     files = {
-        constants.GENESIS_DATA_MOUNTPOINT_ON_CLIENTS: el_cl_genesis_data.files_artifact_uuid,
-        constants.JWT_MOUNTPOINT_ON_CLIENTS: jwt_file,
+        constants.GENESIS_DATA_MOUNTPOINT_ON_CLIENTS: launcher.el_cl_genesis_data.files_artifact_uuid,
+        constants.JWT_MOUNTPOINT_ON_CLIENTS: launcher.jwt_file,
     }
 
     config_args = {
-        "image": image,
+        "image": participant.el_image,
         "ports": used_ports,
         "public_ports": public_ports,
         "cmd": [command_str],
@@ -225,7 +194,7 @@ def get_config(
         "labels": shared_utils.label_maker(
             constants.EL_TYPE.ethrex,
             constants.CLIENT_TYPES.el,
-            image,
+            participant.el_image,
             cl_client_name,
             extra_labels,
         ),
@@ -244,6 +213,36 @@ def get_config(
 
     return ServiceConfig(**config_args)
 
+def get_el_context(
+    plan,
+    service_name,
+    service,
+    launcher,
+):
+    enode, enr = el_admin_node_info.get_enode_enr_for_node(plan, service_name, constants.RPC_PORT_ID)
+
+    metric_url = "{0}:{1}".format(service.ip_address, METRICS_PORT_NUM)
+    metrics_info = node_metrics.new_node_metrics_info(
+        service_name, METRICS_PATH, metric_url
+    )
+
+    http_url = "http://{0}:{1}".format(service.ip_address, RPC_PORT_NUM)
+    ws_url = "ws://{0}:{1}".format(service.ip_address, WS_PORT_NUM)
+
+    return el_context.new_el_context(
+        client_name="ethrex",
+        enode=enode,
+        ip_addr=service.ip_address,
+        rpc_port_num=RPC_PORT_NUM,
+        ws_port_num=WS_PORT_NUM,
+        engine_rpc_port_num=ENGINE_RPC_PORT_NUM,
+        rpc_http_url=http_url,
+        ws_url=ws_url,
+        enr=enr,
+        service_name=service_name,
+        el_metrics_info=[metrics_info],
+    )
+    
 
 def new_ethrex_launcher(el_cl_genesis_data, jwt_file):
     return struct(el_cl_genesis_data=el_cl_genesis_data, jwt_file=jwt_file)
