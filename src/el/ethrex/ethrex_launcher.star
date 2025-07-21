@@ -81,7 +81,7 @@ def launch(
     )
 
     service = plan.add_service(service_name, config)
-    
+
     return get_el_context(
         plan,
         service_name,
@@ -213,13 +213,16 @@ def get_config(
 
     return ServiceConfig(**config_args)
 
+
 def get_el_context(
     plan,
     service_name,
     service,
     launcher,
 ):
-    enode, enr = el_admin_node_info.get_enode_enr_for_node(plan, service_name, constants.RPC_PORT_ID)
+    enode, enr = el_admin_node_info.get_enode_enr_for_node(
+        plan, service_name, constants.RPC_PORT_ID
+    )
 
     metric_url = "{0}:{1}".format(service.ip_address, METRICS_PORT_NUM)
     metrics_info = node_metrics.new_node_metrics_info(
@@ -242,7 +245,7 @@ def get_el_context(
         service_name=service_name,
         el_metrics_info=[metrics_info],
     )
-    
+
 
 def new_ethrex_launcher(el_cl_genesis_data, jwt_file):
     return struct(el_cl_genesis_data=el_cl_genesis_data, jwt_file=jwt_file)
