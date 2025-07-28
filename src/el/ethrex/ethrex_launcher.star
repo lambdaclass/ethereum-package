@@ -36,8 +36,6 @@ def get_used_ports(discovery_port):
     return used_ports
 
 
-ENTRYPOINT_ARGS = ["sh", "-c"]
-
 VERBOSITY_LEVELS = {
     constants.GLOBAL_LOG_LEVEL.error: "1",
     constants.GLOBAL_LOG_LEVEL.warn: "2",
@@ -134,7 +132,6 @@ def get_config(
         )
     used_ports = get_used_ports(discovery_port)
     cmd = [
-        "ethrex",
         "--log.level=" + log_level,
         "--datadir=" + EXECUTION_DATA_DIRPATH_ON_CLIENT_CONTAINER,
         "--network={0}".format(
@@ -188,7 +185,6 @@ def get_config(
         "public_ports": public_ports,
         "cmd": [command_str],
         "files": files,
-        "entrypoint": ENTRYPOINT_ARGS,
         "private_ip_address_placeholder": constants.PRIVATE_IP_ADDRESS_PLACEHOLDER,
         "env_vars": extra_env_vars,
         "labels": shared_utils.label_maker(
