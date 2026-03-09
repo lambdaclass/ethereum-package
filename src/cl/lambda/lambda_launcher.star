@@ -62,14 +62,14 @@ VERBOSITY_LEVELS = {
 def launch(
     plan,
     launcher,
-    service_name,
+    beacon_service_name,
     participant,
     global_log_level,
-    bootnode_context,
+    bootnode_contexts,
     el_context,
     full_name,
     node_keystore_files,
-    snooper_engine_context,
+    snooper_el_engine_context,
     persistent,
     tolerations,
     node_selectors,
@@ -77,136 +77,102 @@ def launch(
     checkpoint_sync_url,
     port_publisher,
     participant_index,
+    network_params,
+    extra_files_artifacts,
+    backend,
+    tempo_otlp_grpc_url=None,
+    bootnode_enr_override=None,
+    cl_binary_artifact=None,
 ):
-    beacon_service_name = "{0}".format(service_name)
-    log_level = input_parser.get_client_log_level_or_default(
-        participant.cl_log_level, global_log_level, VERBOSITY_LEVELS
-    )
-
-    extra_params = [param for param in participant.cl_extra_params]
-
-    network_name = shared_utils.get_network_name(launcher.network)
-
-    # Default CPU and memory values
-    cl_min_cpu = participant.cl_min_cpu if participant.cl_min_cpu > 0 else BEACON_MIN_CPU
-    cl_max_cpu = participant.cl_max_cpu if participant.cl_max_cpu > 0 else 2000  # Default max CPU
-    cl_min_mem = participant.cl_min_mem if participant.cl_min_mem > 0 else BEACON_MIN_MEMORY
-    cl_max_mem = participant.cl_max_mem if participant.cl_max_mem > 0 else 4096  # Default max memory
-
-    # Default volume size
-    cl_volume_size = participant.cl_volume_size if participant.cl_volume_size > 0 else 20  # Default 20GB
-
     config = get_beacon_config(
         plan,
-        launcher.el_cl_genesis_data,
-        launcher.jwt_file,
-        launcher.network,
-        participant.keymanager_enabled,
-        participant.cl_image,
+        launcher,
         beacon_service_name,
-        bootnode_context,
+        participant,
+        global_log_level,
+        bootnode_contexts,
         el_context,
         full_name,
-        log_level,
         node_keystore_files,
-        cl_min_cpu,
-        cl_max_cpu,
-        cl_min_mem,
-        cl_max_mem,
-        participant.snooper_enabled,
-        snooper_engine_context,
-        extra_params,
-        participant.cl_extra_env_vars,
-        participant.cl_extra_labels,
-        participant.use_separate_vc,
+        snooper_el_engine_context,
         persistent,
-        cl_volume_size,
         tolerations,
         node_selectors,
         checkpoint_sync_enabled,
         checkpoint_sync_url,
+        port_publisher,
+        participant_index,
+        network_params,
+        extra_files_artifacts,
+        backend,
+        tempo_otlp_grpc_url,
+        bootnode_enr_override,
+        cl_binary_artifact,
     )
 
-    beacon_service = plan.add_service(service_name, config)
+    beacon_service = plan.add_service(beacon_service_name, config)
 
-    beacon_http_port = beacon_service.ports[BEACON_HTTP_PORT_ID]
-    beacon_http_url = "http://{0}:{1}".format(
-        beacon_service.ip_address, beacon_http_port.number
-    )
-
-    beacon_metrics_port = beacon_service.ports[BEACON_METRICS_PORT_ID]
-    beacon_metrics_url = "{0}:{1}".format(
-        beacon_service.ip_address, beacon_metrics_port.number
-    )
-
-    beacon_node_identity_recipe = GetHttpRequestRecipe(
-        endpoint="/eth/v1/node/identity",
-        port_id=BEACON_HTTP_PORT_ID,
-        extract={
-            "enr": ".data.enr",
-            "multiaddr": ".data.p2p_addresses[0]",
-            "peer_id": ".data.peer_id",
-        },
-    )
-    response = plan.request(
-        recipe=beacon_node_identity_recipe, service_name=service_name
-    )
-    beacon_node_enr = response["extract.enr"]
-    beacon_multiaddr = response["extract.multiaddr"]
-    beacon_peer_id = response["extract.peer_id"]
-
-    beacon_node_metrics_info = node_metrics.new_node_metrics_info(
-        service_name, BEACON_METRICS_PATH, beacon_metrics_url
-    )
-    nodes_metrics_info = [beacon_node_metrics_info]
-    return cl_context.new_cl_context(
-        "lambda",
-        beacon_node_enr,
-        beacon_service.ip_address,
-        beacon_http_port.number,
-        beacon_http_url,
-        nodes_metrics_info,
+    return get_cl_context(
+        plan,
         beacon_service_name,
-        multiaddr=beacon_multiaddr,
-        peer_id=beacon_peer_id,
-        snooper_enabled=participant.snooper_enabled,
-        snooper_engine_context=snooper_engine_context,
-        validator_keystore_files_artifact_uuid=node_keystore_files.files_artifact_uuid
-        if node_keystore_files
-        else "",
+        beacon_service,
+        participant,
+        snooper_el_engine_context,
+        node_keystore_files,
+        node_selectors,
     )
 
 
 def get_beacon_config(
     plan,
-    el_cl_genesis_data,
-    jwt_file,
-    network,
-    keymanager_enabled,
-    image,
-    service_name,
+    launcher,
+    beacon_service_name,
+    participant,
+    global_log_level,
     bootnode_contexts,
     el_context,
     full_name,
-    log_level,
     node_keystore_files,
-    cl_min_cpu,
-    cl_max_cpu,
-    cl_min_mem,
-    cl_max_mem,
-    snooper_enabled,
-    snooper_engine_context,
-    extra_params,
-    extra_env_vars,
-    extra_labels,
-    use_separate_vc,
+    snooper_el_engine_context,
     persistent,
-    cl_volume_size,
     tolerations,
     node_selectors,
     checkpoint_sync_enabled,
     checkpoint_sync_url,
+    port_publisher,
+    participant_index,
+    network_params,
+    extra_files_artifacts,
+    backend,
+    tempo_otlp_grpc_url=None,
+    bootnode_enr_override=None,
+    cl_binary_artifact=None,
 ):
+    log_level = input_parser.get_client_log_level_or_default(
+        participant.cl_log_level, global_log_level, VERBOSITY_LEVELS
+    )
+    extra_params = [param for param in participant.cl_extra_params]
+
+    # Extract from launcher struct
+    el_cl_genesis_data = launcher.el_cl_genesis_data
+    jwt_file = launcher.jwt_file
+    network = launcher.network
+
+    # Extract from participant
+    image = participant.cl_image
+    keymanager_enabled = participant.keymanager_enabled
+    snooper_enabled = participant.snooper_enabled
+    extra_env_vars = participant.cl_extra_env_vars
+    extra_labels = participant.cl_extra_labels
+    use_separate_vc = participant.use_separate_vc
+
+    # Resource sizing with defaults
+    cl_min_cpu = participant.cl_min_cpu if participant.cl_min_cpu > 0 else BEACON_MIN_CPU
+    cl_max_cpu = participant.cl_max_cpu if participant.cl_max_cpu > 0 else 2000
+    cl_min_mem = participant.cl_min_mem if participant.cl_min_mem > 0 else BEACON_MIN_MEMORY
+    cl_max_mem = participant.cl_max_mem if participant.cl_max_mem > 0 else 4096
+    cl_volume_size = participant.cl_volume_size if participant.cl_volume_size > 0 else 20
+
     validator_keys_dirpath = ""
     validator_secrets_dirpath = ""
     if node_keystore_files:
@@ -221,8 +187,8 @@ def get_beacon_config(
     # If snooper is enabled use the snooper engine context, otherwise use the execution client context
     if snooper_enabled:
         EXECUTION_ENGINE_ENDPOINT = "http://{0}:{1}".format(
-            snooper_engine_context.ip_addr,
-            snooper_engine_context.engine_rpc_port_num,
+            snooper_el_engine_context.ip_addr,
+            snooper_el_engine_context.engine_rpc_port_num,
         )
     else:
         EXECUTION_ENGINE_ENDPOINT = "http://{0}:{1}".format(
@@ -343,7 +309,7 @@ def get_beacon_config(
 
     if persistent:
         files[BEACON_DATA_DIRPATH_ON_SERVICE_CONTAINER] = Directory(
-            persistent_key="data-{0}".format(service_name),
+            persistent_key="data-{0}".format(beacon_service_name),
             size=cl_volume_size,
         )
 
@@ -372,6 +338,72 @@ def get_beacon_config(
         tolerations=tolerations,
         node_selectors=node_selectors,
     )
+
+
+def get_cl_context(
+    plan,
+    service_name,
+    service,
+    participant,
+    snooper_el_engine_context,
+    node_keystore_files,
+    node_selectors,
+):
+    beacon_http_port = service.ports[BEACON_HTTP_PORT_ID]
+    beacon_http_url = "http://{0}:{1}".format(service.name, beacon_http_port.number)
+
+    beacon_node_identity_recipe = GetHttpRequestRecipe(
+        endpoint="/eth/v1/node/identity",
+        port_id=BEACON_HTTP_PORT_ID,
+        extract={
+            "enr": ".data.enr",
+            "multiaddr": ".data.p2p_addresses[0]",
+            "peer_id": ".data.peer_id",
+        },
+    )
+    response = plan.request(
+        recipe=beacon_node_identity_recipe, service_name=service_name
+    )
+    beacon_node_enr = response["extract.enr"]
+    beacon_multiaddr = response["extract.multiaddr"]
+    beacon_peer_id = response["extract.peer_id"]
+
+    beacon_metrics_port = service.ports[BEACON_METRICS_PORT_ID]
+    beacon_metrics_url = "{0}:{1}".format(service.name, beacon_metrics_port.number)
+    beacon_node_metrics_info = node_metrics.new_node_metrics_info(
+        service_name, BEACON_METRICS_PATH, beacon_metrics_url
+    )
+    nodes_metrics_info = [beacon_node_metrics_info]
+
+    return cl_context.new_cl_context(
+        client_name="lambda",
+        enr=beacon_node_enr,
+        ip_addr=service.name,
+        ip_address=service.ip_address,
+        http_port=beacon_http_port.number,
+        beacon_http_url=beacon_http_url,
+        cl_nodes_metrics_info=nodes_metrics_info,
+        beacon_service_name=service_name,
+        multiaddr=beacon_multiaddr,
+        peer_id=beacon_peer_id,
+        snooper_enabled=participant.snooper_enabled,
+        snooper_el_engine_context=snooper_el_engine_context,
+        validator_keystore_files_artifact_uuid=node_keystore_files.files_artifact_uuid
+        if node_keystore_files
+        else "",
+        supernode=participant.supernode,
+    )
+
+
+def get_blobber_config(
+    plan,
+    participant,
+    beacon_service_name,
+    beacon_http_url,
+    node_keystore_files,
+    node_selectors,
+):
+    return None
 
 
 def new_lambda_launcher(

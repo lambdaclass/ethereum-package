@@ -116,6 +116,9 @@ def launch(
                 network_params.network,
             ),
             "launch_method": lambda_eth.launch,
+            "get_beacon_config": lambda_eth.get_beacon_config,
+            "get_cl_context": lambda_eth.get_cl_context,
+            "get_blobber_config": lambda_eth.get_blobber_config,
         },
     }
 
