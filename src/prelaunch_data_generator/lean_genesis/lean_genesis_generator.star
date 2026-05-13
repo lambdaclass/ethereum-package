@@ -137,7 +137,7 @@ validators:
         sed_lines.append(
             (
                 "key=$(cat /keys/{0}.key) && "
-                + "sed -i \"s|__PRIVKEY_{0}__|$key|\" /out/validator-config.yaml"
+                + 'sed -i "s|__PRIVKEY_{0}__|$key|" /out/validator-config.yaml'
             ).format(meta["name"])
         )
     sed_script = "\n".join(sed_lines)
@@ -151,7 +151,9 @@ validators:
             "/tpl": template_artifact,
             "/keys": keys_artifact,
         },
-        store=[StoreSpec(src="/out/validator-config.yaml", name="lean-validator-config")],
+        store=[
+            StoreSpec(src="/out/validator-config.yaml", name="lean-validator-config")
+        ],
         description="Rendering Lean validator-config.yaml (stage 2, privkey inlining)",
     )
     return result.files_artifacts[0]
@@ -218,6 +220,11 @@ def _generate_hash_sig_keys(plan, image, num_validators, active_epoch):
             + "--export-format ssz"
         ).format(HASH_SIG_DIR, num_validators, active_epoch),
         image=image,
+        # XMSS keygen is CPU-bound and scales with --num-validators *
+        # 2^active_epoch. On slower hosts (or with active_epoch >= 18) it
+        # overruns the default 180s plan.run_sh timeout, so give it 30
+        # minutes. The step is idempotent — re-runs won't regenerate.
+        wait="30m",
         store=[
             StoreSpec(src=HASH_SIG_DIR, name=HASH_SIG_ARTIFACT_NAME),
         ],
