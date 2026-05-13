@@ -342,9 +342,8 @@ MANIFEST = os.path.join(HASH_SIG, "validator-keys-manifest.yaml")
 
 def _as_hex(value):
     # Normalise a pubkey field to a no-0x-prefix lowercase hex string.
-    # YAML 1.1 (PyYAML default) interprets unquoted `0x...` tokens as
-    # integers, so each field may arrive as either int or str depending on
-    # how hash-sig-cli wrote the manifest. Handle both.
+    # Even with BaseLoader (which keeps everything as str) we strip the 0x
+    # prefix here; int fallback handles unexpected manifest shapes.
     if isinstance(value, int):
         return format(value, "x")
     s = str(value)
@@ -375,7 +374,12 @@ copytree_into(HASH_SIG, os.path.join(OUT, "hash-sig-keys"))
 
 # Stage 2: append GENESIS_VALIDATORS (dual-key) to config.yaml.
 with open(MANIFEST) as f:
-    manifest = yaml.safe_load(f)
+    # BaseLoader keeps every scalar as a Python str. We need this for the
+    # XMSS pubkey hex fields: YAML 1.1 (PyYAML's default) interprets
+    # unquoted `0x...` tokens as integers, which silently drops leading
+    # zeros when we format the value back out — clients then reject the
+    # config because the pubkey has an odd number of hex digits.
+    manifest = yaml.load(f, Loader=yaml.BaseLoader)
 
 gv_lines = ["", "# Genesis validator public keys (post-quantum hash-sig)", "GENESIS_VALIDATORS:"]
 for v in manifest["validators"]:
@@ -388,7 +392,9 @@ with open(os.path.join(OUT, "config.yaml"), "a") as f:
 
 # Stage 3: render annotated_validators.yaml from validators.yaml + manifest.
 with open(os.path.join(OUT, "validators.yaml")) as f:
-    assignments = yaml.safe_load(f) or {}
+    # Use BaseLoader too (see manifest load above) for consistency, even
+    # though this file has no hex tokens to worry about today.
+    assignments = yaml.load(f, Loader=yaml.BaseLoader) or {}
 
 ann_lines = []
 for node, indices in assignments.items():
