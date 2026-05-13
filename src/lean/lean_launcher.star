@@ -28,6 +28,7 @@ p2p_keys = import_module(
 ethlambda_launcher = import_module("./ethlambda/ethlambda_launcher.star")
 ream_launcher = import_module("./ream/ream_launcher.star")
 zeam_launcher = import_module("./zeam/zeam_launcher.star")
+metrics_launcher = import_module("./metrics/metrics_launcher.star")
 
 
 def _launcher_for(lean_type):
@@ -192,4 +193,11 @@ def launch(plan, lean_participants, lean_network_params):
             genesis.genesis_time,
         )
     )
+
+    # Phase 4: launch Prometheus + Grafana scraping every Lean node's
+    # /metrics endpoint. Enabled by default; set
+    # lean_network_params.metrics_enabled: false to skip.
+    if lean_network_params.get("metrics_enabled", True):
+        metrics_launcher.launch(plan, contexts)
+
     return contexts

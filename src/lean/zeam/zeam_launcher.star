@@ -119,7 +119,10 @@ def start(plan, node, service, genesis_artifact, hash_sig_artifact):
                     "sh",
                     "-c",
                     "{3} cat > {0}/{1} <<'ZEAM_EOF'\n{2}\nZEAM_EOF".format(
-                        GENESIS_MOUNT, filename, read.output, BUSYBOX,
+                        GENESIS_MOUNT,
+                        filename,
+                        read.output,
+                        BUSYBOX,
                     ),
                 ],
             ),
@@ -129,22 +132,29 @@ def start(plan, node, service, genesis_artifact, hash_sig_artifact):
     cmd_parts = [
         ENTRYPOINT,
         "node",
-        "--custom-genesis", GENESIS_MOUNT,
+        "--custom-genesis",
+        GENESIS_MOUNT,
         # zeam's --validator-config accepts either a directory of per-node
         # validator configs OR the literal sentinel `genesis_bootnode`,
         # which tells zeam to derive its validator set from the
         # GENESIS_VALIDATORS list in config.yaml. Pointing at a single
         # file path (lean-quickstart's `validator-config.yaml`) trips
         # zeam's "NotDir" check, so use the sentinel here.
-        "--validator-config", "genesis_bootnode",
-        "--data-dir", DATA_DIR,
-        "--node-id", node["node_name"],
+        "--validator-config",
+        "genesis_bootnode",
+        "--data-dir",
+        DATA_DIR,
+        "--node-id",
+        node["node_name"],
         # zeam (per lean-quickstart's contract) reads --node-key relative to
         # the custom-genesis dir; we staged it there in the prepare step.
-        "--node-key", "{0}/{1}.key".format(GENESIS_MOUNT, node["node_name"]),
+        "--node-key",
+        "{0}/{1}.key".format(GENESIS_MOUNT, node["node_name"]),
         "--metrics-enable",
-        "--api-port", str(constants.LEAN_API_PORT_NUM),
-        "--metrics-port", str(constants.LEAN_METRICS_PORT_NUM),
+        "--api-port",
+        str(constants.LEAN_API_PORT_NUM),
+        "--metrics-port",
+        str(constants.LEAN_METRICS_PORT_NUM),
     ]
     if node["is_aggregator"]:
         cmd_parts.append("--is-aggregator")
@@ -164,11 +174,10 @@ def start(plan, node, service, genesis_artifact, hash_sig_artifact):
         description="Starting zeam binary on {0}".format(service_name),
     )
 
-    api_url = "http://{0}:{1}".format(
-        service.ip_address, constants.LEAN_API_PORT_NUM
-    )
+    api_url = "http://{0}:{1}".format(service.ip_address, constants.LEAN_API_PORT_NUM)
     metrics_url = "http://{0}:{1}/metrics".format(
-        service.ip_address, constants.LEAN_METRICS_PORT_NUM,
+        service.ip_address,
+        constants.LEAN_METRICS_PORT_NUM,
     )
 
     return lean_context.new_lean_context(

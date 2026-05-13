@@ -83,7 +83,9 @@ def start(plan, node, service, genesis_artifact, hash_sig_artifact):
                     "/bin/sh",
                     "-c",
                     "cat > {0}/{1} <<'REAM_EOF'\n{2}\nREAM_EOF".format(
-                        GENESIS_MOUNT, filename, read.output,
+                        GENESIS_MOUNT,
+                        filename,
+                        read.output,
                     ),
                 ],
             ),
@@ -92,20 +94,30 @@ def start(plan, node, service, genesis_artifact, hash_sig_artifact):
 
     cmd_parts = [
         ENTRYPOINT,
-        "--data-dir", DATA_DIR,
+        "--data-dir",
+        DATA_DIR,
         "lean_node",
-        "--network", "{0}/config.yaml".format(GENESIS_MOUNT),
+        "--network",
+        "{0}/config.yaml".format(GENESIS_MOUNT),
         "--validator-registry-path",
         "{0}/annotated_validators.yaml".format(GENESIS_MOUNT),
-        "--bootnodes", "{0}/nodes.yaml".format(GENESIS_MOUNT),
-        "--node-id", node["node_name"],
-        "--node-key", "{0}/{1}.key".format(NODE_KEY_MOUNT, node["node_name"]),
-        "--socket-port", str(constants.LEAN_QUIC_PORT_NUM),
+        "--bootnodes",
+        "{0}/nodes.yaml".format(GENESIS_MOUNT),
+        "--node-id",
+        node["node_name"],
+        "--node-key",
+        "{0}/{1}.key".format(NODE_KEY_MOUNT, node["node_name"]),
+        "--socket-port",
+        str(constants.LEAN_QUIC_PORT_NUM),
         "--metrics",
-        "--metrics-address", "0.0.0.0",
-        "--metrics-port", str(constants.LEAN_METRICS_PORT_NUM),
-        "--http-address", "0.0.0.0",
-        "--http-port", str(constants.LEAN_API_PORT_NUM),
+        "--metrics-address",
+        "0.0.0.0",
+        "--metrics-port",
+        str(constants.LEAN_METRICS_PORT_NUM),
+        "--http-address",
+        "0.0.0.0",
+        "--http-port",
+        str(constants.LEAN_API_PORT_NUM),
     ]
     if node["is_aggregator"]:
         cmd_parts.append("--is-aggregator")
@@ -129,9 +141,7 @@ def start(plan, node, service, genesis_artifact, hash_sig_artifact):
         description="Starting ream binary on {0}".format(service_name),
     )
 
-    api_url = "http://{0}:{1}".format(
-        service.ip_address, constants.LEAN_API_PORT_NUM
-    )
+    api_url = "http://{0}:{1}".format(service.ip_address, constants.LEAN_API_PORT_NUM)
     metrics_url = "http://{0}:{1}/metrics".format(
         service.ip_address,
         constants.LEAN_METRICS_PORT_NUM,

@@ -106,7 +106,9 @@ def start(plan, node, service, genesis_artifact, hash_sig_artifact):
                     "/bin/sh",
                     "-c",
                     "cat > {0}/{1} <<'ETHLAMBDA_EOF'\n{2}\nETHLAMBDA_EOF".format(
-                        GENESIS_MOUNT, filename, read.output,
+                        GENESIS_MOUNT,
+                        filename,
+                        read.output,
                     ),
                 ],
             ),
@@ -119,18 +121,30 @@ def start(plan, node, service, genesis_artifact, hash_sig_artifact):
     # log file the tail is already watching.
     cmd_parts = [
         ENTRYPOINT,
-        "--genesis", "{0}/config.yaml".format(GENESIS_MOUNT),
-        "--validators", "{0}/annotated_validators.yaml".format(GENESIS_MOUNT),
-        "--bootnodes", "{0}/nodes.yaml".format(GENESIS_MOUNT),
-        "--validator-config", "{0}/validator-config.yaml".format(GENESIS_MOUNT),
-        "--hash-sig-keys-dir", HASH_SIG_MOUNT,
-        "--data-dir", DATA_DIR,
-        "--gossipsub-port", str(constants.LEAN_QUIC_PORT_NUM),
-        "--node-id", node["node_name"],
-        "--node-key", "{0}/{1}.key".format(NODE_KEY_MOUNT, node["node_name"]),
-        "--http-address", "0.0.0.0",
-        "--api-port", str(constants.LEAN_API_PORT_NUM),
-        "--metrics-port", str(constants.LEAN_METRICS_PORT_NUM),
+        "--genesis",
+        "{0}/config.yaml".format(GENESIS_MOUNT),
+        "--validators",
+        "{0}/annotated_validators.yaml".format(GENESIS_MOUNT),
+        "--bootnodes",
+        "{0}/nodes.yaml".format(GENESIS_MOUNT),
+        "--validator-config",
+        "{0}/validator-config.yaml".format(GENESIS_MOUNT),
+        "--hash-sig-keys-dir",
+        HASH_SIG_MOUNT,
+        "--data-dir",
+        DATA_DIR,
+        "--gossipsub-port",
+        str(constants.LEAN_QUIC_PORT_NUM),
+        "--node-id",
+        node["node_name"],
+        "--node-key",
+        "{0}/{1}.key".format(NODE_KEY_MOUNT, node["node_name"]),
+        "--http-address",
+        "0.0.0.0",
+        "--api-port",
+        str(constants.LEAN_API_PORT_NUM),
+        "--metrics-port",
+        str(constants.LEAN_METRICS_PORT_NUM),
     ]
     if node["is_aggregator"]:
         cmd_parts.append("--is-aggregator")
@@ -155,10 +169,12 @@ def start(plan, node, service, genesis_artifact, hash_sig_artifact):
     )
 
     api_url = "http://{0}:{1}".format(
-        service.ip_address, constants.LEAN_API_PORT_NUM,
+        service.ip_address,
+        constants.LEAN_API_PORT_NUM,
     )
     metrics_url = "http://{0}:{1}/metrics".format(
-        service.ip_address, constants.LEAN_METRICS_PORT_NUM,
+        service.ip_address,
+        constants.LEAN_METRICS_PORT_NUM,
     )
 
     return lean_context.new_lean_context(

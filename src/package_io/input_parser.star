@@ -2657,6 +2657,10 @@ def default_lean_network_params():
         # constants. Override to pin a specific PK genesis-tool commit.
         "genesis_generator_image": "",
         "hash_sig_cli_image": "",
+        # When true, start a Prometheus + Grafana stack inside the enclave
+        # that scrapes every Lean node's `/metrics` endpoint and serves the
+        # upstream Lean client dashboard at port 3000.
+        "metrics_enabled": True,
     }
 
 
