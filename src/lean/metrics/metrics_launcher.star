@@ -47,6 +47,12 @@ def launch(plan, lean_contexts):
         name="lean-grafana-dashboards",
     )
 
+    # Pin host-side ports via public_ports so dashboards have stable URLs
+    # across re-runs and so the operator can reach them via the host's
+    # public hostname (e.g. http://my-host:3000) without an SSH tunnel.
+    # Kurtosis's default `ports={}` publishes on a random host port bound
+    # to 127.0.0.1; `public_ports={}` pins the host-side port and Docker
+    # publishes it on 0.0.0.0 (the default `-p` behaviour).
     prometheus = plan.add_service(
         name=PROMETHEUS_SERVICE,
         config=ServiceConfig(
@@ -58,6 +64,14 @@ def launch(plan, lean_contexts):
                 "--web.enable-lifecycle",
             ],
             ports={
+                "http": PortSpec(
+                    number=PROMETHEUS_PORT,
+                    transport_protocol="TCP",
+                    application_protocol="http",
+                    wait=None,
+                ),
+            },
+            public_ports={
                 "http": PortSpec(
                     number=PROMETHEUS_PORT,
                     transport_protocol="TCP",
@@ -82,6 +96,14 @@ def launch(plan, lean_contexts):
                 "GF_AUTH_DISABLE_LOGIN_FORM": "true",
             },
             ports={
+                "http": PortSpec(
+                    number=GRAFANA_PORT,
+                    transport_protocol="TCP",
+                    application_protocol="http",
+                    wait=None,
+                ),
+            },
+            public_ports={
                 "http": PortSpec(
                     number=GRAFANA_PORT,
                     transport_protocol="TCP",
