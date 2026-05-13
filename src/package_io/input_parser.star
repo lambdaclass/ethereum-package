@@ -2658,8 +2658,10 @@ def parse_lean_participants(raw_participants):
             default_image = DEFAULT_LEAN_IMAGES.get(entry["lean_type"], "")
             if default_image == "":
                 fail(
-                    "lean_type '{0}' has no default image; please set "
-                    "`lean_image` on this participant.".format(entry["lean_type"])
+                    (
+                        "lean_type '{0}' has no default image; please set "
+                        + "`lean_image` on this participant."
+                    ).format(entry["lean_type"])
                 )
             entry["lean_image"] = default_image
         if entry["count"] < 1:

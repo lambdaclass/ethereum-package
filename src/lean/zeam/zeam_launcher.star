@@ -86,7 +86,6 @@ def start(plan, node, service, genesis_artifact, hash_sig_artifact):
         files={
             NODE_KEY_MOUNT: node["_p2p_keys_artifact"],
             GENESIS_MOUNT: genesis_artifact,
-            HASH_SIG_MOUNT: hash_sig_artifact,
         },
         env_vars=node["extra_env_vars"],
         labels=node["extra_labels"],

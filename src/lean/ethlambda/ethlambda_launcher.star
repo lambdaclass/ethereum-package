@@ -114,10 +114,13 @@ def start(plan, node, service, genesis_artifact, hash_sig_artifact):
             "{0} 2>&1 | tee -a {1}".format(full_cmd, log_file),
         ],
         ports=lean_shared.lean_port_specs(),
+        # The hash-sig keys are bundled inside the genesis artifact under
+        # ./hash-sig-keys (see lean_genesis_generator._post_process); Kurtosis
+        # forbids overlapping file artifact mounts so we only mount the
+        # genesis bundle here and let HASH_SIG_MOUNT resolve transparently.
         files={
             NODE_KEY_MOUNT: node["_p2p_keys_artifact"],
             GENESIS_MOUNT: genesis_artifact,
-            HASH_SIG_MOUNT: hash_sig_artifact,
         },
         env_vars=env_vars,
         labels=node["extra_labels"],

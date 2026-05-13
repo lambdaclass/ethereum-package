@@ -253,10 +253,13 @@ def _post_process(
     return plan.run_sh(
         run="""
             set -eu
-            mkdir -p /out
+            mkdir -p /out /out/hash-sig-keys
             cp /raw/* /out/
             cp /vc/validator-config.yaml /out/
             cp /node-keys/*.key /out/
+            # Bundle hash-sig keys into the same artifact (nested file artifact
+            # mounts can't overlap in Kurtosis, so we ship a single tree).
+            cp -r /hash-sig/. /out/hash-sig-keys/
 
             # Append GENESIS_VALIDATORS to config.yaml (dual-key layout).
             manifest=/hash-sig/validator-keys-manifest.yaml
@@ -329,7 +332,7 @@ def generate(plan, services_meta, lean_network_params, node_key_artifact):
     if total_validators < 1:
         fail(
             "Lean genesis requires at least one validator across all "
-            "lean_participants (got 0)."
+            + "lean_participants (got 0).",
         )
 
     genesis_image, hash_sig_image = _resolve_images(lean_network_params)

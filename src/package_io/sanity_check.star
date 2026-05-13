@@ -487,6 +487,12 @@ ADDITIONAL_SERVICES_PARAMS = [
 ]
 
 ADDITIONAL_CATEGORY_PARAMS = {
+    # Lean Ethereum participants: validated structurally inside the Lean
+    # input parser (see DEFAULT_LEAN_IMAGES + parse_lean_participants in
+    # input_parser.star), so we register the root keys here as opaque and
+    # let the parser raise on bad per-entry fields.
+    "lean_participants": "",
+    "lean_network_params": "",
     "wait_for_finalization": "",
     "global_log_level": "",
     "snooper_enabled": "",
