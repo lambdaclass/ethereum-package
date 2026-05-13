@@ -58,3 +58,29 @@ def lean_tail_logs_cmd(service_name):
     """
     log_file = lean_log_file_path(service_name)
     return ["/bin/sh", "-c", "touch {0} && tail -f {0}".format(log_file)]
+
+
+def common_cfg_kwargs(node):
+    """ServiceConfig kwargs shared between per-client initialize() and start().
+
+    Kurtosis rejects memory/cpu values of 0 (it expects "unset" via the
+    *absence* of the kwarg, not via a 0 sentinel). We omit those keys here
+    when the participant didn't set them. Per-client launchers add image,
+    cmd, entrypoint, and files on top.
+    """
+    kwargs = {
+        "ports": lean_port_specs(),
+        "env_vars": node["extra_env_vars"],
+        "labels": node["extra_labels"],
+        "node_selectors": node["node_selectors"],
+        "tolerations": node["tolerations"],
+    }
+    if node["min_cpu"] > 0:
+        kwargs["min_cpu"] = node["min_cpu"]
+    if node["max_cpu"] > 0:
+        kwargs["max_cpu"] = node["max_cpu"]
+    if node["min_mem"] > 0:
+        kwargs["min_memory"] = node["min_mem"]
+    if node["max_mem"] > 0:
+        kwargs["max_memory"] = node["max_mem"]
+    return kwargs

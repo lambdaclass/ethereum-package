@@ -89,6 +89,36 @@ def run(plan, args={}):
     num_participants = len(args_with_right_defaults.participants)
     network_params = args_with_right_defaults.network_params
 
+    # Lean-only mode: when the operator configured `lean_participants:` but
+    # no Eth1 `participants:` entries, run ONLY the Lean pipeline. Lean
+    # consensus is fully standalone (no Engine API, no EL counterpart), so
+    # spinning up an EL+CL pair as a "placeholder" would just waste resources
+    # and confuse downstream services that try to call the Engine API.
+    # The lean_launcher returns the per-node contexts; downstream consumers
+    # (prometheus, grafana, dora) can be wired through in a follow-up.
+    if num_participants == 0 and args_with_right_defaults.lean_participants:
+        plan.print(
+            "Lean-only mode: {0} lean participant entries, 0 EL/CL participants".format(
+                len(args_with_right_defaults.lean_participants)
+            )
+        )
+        lean_contexts = lean_launcher.launch(
+            plan,
+            args_with_right_defaults.lean_participants,
+            args_with_right_defaults.lean_network_params,
+        )
+        return struct(
+            grafana_info=None,
+            blockscout_sc_verif_url=None,
+            all_participants=[],
+            lean_participants=lean_contexts,
+            pre_funded_accounts={},
+            network_params=network_params,
+            network_id=network_params.network_id,
+            final_genesis_timestamp=None,
+            genesis_validators_root=None,
+        )
+
     # Detect the backend type early - needed for binary injection validation
     detected_backend = plan.get_cluster_type()
 

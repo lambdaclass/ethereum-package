@@ -71,11 +71,17 @@ def launch(plan, lean_participants, lean_network_params):
         for _ in range(participant["count"]):
             idx = type_counters.get(lean_type, 0)
             type_counters[lean_type] = idx + 1
+            # `node_name` follows lean-quickstart's `<client>_<index>`
+            # convention (passed as --node-id and used in validator-config.yaml).
+            # Kurtosis service names, however, must match RFC 1035 — lowercase
+            # letters/digits/hyphens only — so we translate the underscore to
+            # a hyphen for the Kurtosis-facing name.
             node_name = "{0}_{1}".format(lean_type, idx)
+            service_name = "lean-{0}-{1}".format(lean_type, idx)
             expanded.append(
                 {
                     "node_name": node_name,
-                    "service_name": "lean-{0}".format(node_name),
+                    "service_name": service_name,
                     "lean_type": lean_type,
                     "image": participant["lean_image"],
                     "validator_count": participant.get(
@@ -104,13 +110,27 @@ def launch(plan, lean_participants, lean_network_params):
             )
 
     node_names = [n["node_name"] for n in expanded]
-    keys_result = p2p_keys.generate_node_keys(plan, node_names)
+    keys_artifact = p2p_keys.generate_node_keys(plan, node_names)
 
-    # Stash the P2P keys artifact on each node record so per-client launchers
-    # can re-mount it during the `start()` phase (where we re-issue the
-    # add_service with the full mounts).
+    # Compute the total validator count up front so we can generate the
+    # hash-sig keys before any service is added. Hash-sig keys don't depend
+    # on the node IP, so we can mount them directly at initialize() time
+    # and avoid having to re-mount any artifact later (Kurtosis rejects
+    # two add_service calls with the same name).
+    total_validators = 0
     for node in expanded:
-        node["_p2p_keys_artifact"] = keys_result.artifact_name
+        total_validators += node["validator_count"]
+    hash_sig_artifact = lean_genesis.generate_hash_sig_keys(
+        plan,
+        lean_network_params,
+        total_validators,
+    )
+
+    # Stash both artifacts on each node record so per-client launchers
+    # have access during initialize().
+    for node in expanded:
+        node["_p2p_keys_artifact"] = keys_artifact
+        node["_hash_sig_artifact"] = hash_sig_artifact
 
     # Phase 1: initialise placeholder services so Kurtosis assigns IPs.
     services = []
@@ -119,12 +139,17 @@ def launch(plan, lean_participants, lean_network_params):
         service = launcher.initialize(
             plan,
             node,
-            keys_result.artifact_name,
+            keys_artifact,
+            hash_sig_artifact,
         )
         services.append((node, service))
 
     # Phase 2: render the validator-config.yaml and run the genesis tool now
-    # that every service has an IP.
+    # that every service has an IP. Note that we do NOT pass per-node
+    # privkey values from Starlark — `plan.run_sh(...).output` is a runtime
+    # future, so individual keys can't be looked up here. The genesis
+    # pipeline reads `<node>.key` directly from the keys artifact inside
+    # its own shell.
     services_meta = []
     for node, service in services:
         services_meta.append(
@@ -134,7 +159,6 @@ def launch(plan, lean_participants, lean_network_params):
                 "quic_port": constants.LEAN_QUIC_PORT_NUM,
                 "metrics_port": constants.LEAN_METRICS_PORT_NUM,
                 "api_port": constants.LEAN_API_PORT_NUM,
-                "privkey": keys_result.keys[node["node_name"]],
                 "validator_count": node["validator_count"],
                 "is_aggregator": node["is_aggregator"],
             }
@@ -144,7 +168,8 @@ def launch(plan, lean_participants, lean_network_params):
         plan,
         services_meta,
         lean_network_params,
-        keys_result.artifact_name,
+        keys_artifact,
+        hash_sig_artifact,
     )
 
     # Phase 3: hand off to each per-client launcher to mount the genesis bundle

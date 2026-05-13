@@ -2,20 +2,7 @@
 zeam launcher.
 
 Translates the Lean pipeline's per-node record into zeam's CLI surface from
-`client-cmds/zeam-cmd.sh` in blockblaz/lean-quickstart:
-
-    zeam node \
-      --custom-genesis <genesis-dir> \
-      --validator-config <validator-config.yaml | genesis_bootnode> \
-      --data-dir <dir> \
-      --node-id <name> --node-key <key> \
-      --metrics-enable --api-port <api> --metrics-port <m>
-
-zeam supports the "genesis_bootnode" sentinel for participants that should
-derive their validator config from GENESIS_VALIDATORS rather than reading
-the per-node `validator-config.yaml`. We pass the full path here because
-that's the safer default; users wanting the sentinel can set
-`lean_extra_params: ["--validator-config", "genesis_bootnode"]`.
+`client-cmds/zeam-cmd.sh` in blockblaz/lean-quickstart.
 """
 
 constants = import_module("../../package_io/constants.star")
@@ -28,99 +15,109 @@ HASH_SIG_MOUNT = GENESIS_MOUNT + "/hash-sig-keys"
 DATA_DIR = "/data"
 NODE_KEY_MOUNT = constants.LEAN_NODE_KEY_MOUNTPOINT_ON_CLIENTS
 
+GENESIS_TEXT_FILES = [
+    "config.yaml",
+    "annotated_validators.yaml",
+    "nodes.yaml",
+    "validator-config.yaml",
+]
 
-def initialize(plan, node, p2p_keys_artifact):
-    cfg = ServiceConfig(
-        image=node["image"],
-        entrypoint=["/bin/sh", "-c"],
-        cmd=lean_shared.lean_tail_logs_cmd(node["service_name"])[2:],
-        ports=lean_shared.lean_port_specs(),
-        files={NODE_KEY_MOUNT: p2p_keys_artifact},
-        env_vars=node["extra_env_vars"],
-        labels=node["extra_labels"],
-        min_cpu=node["min_cpu"],
-        max_cpu=node["max_cpu"],
-        min_memory=node["min_mem"],
-        max_memory=node["max_mem"],
-        node_selectors=node["node_selectors"],
-        tolerations=node["tolerations"],
+
+def initialize(plan, node, p2p_keys_artifact, hash_sig_artifact):
+    cfg_kwargs = lean_shared.common_cfg_kwargs(node)
+    cfg_kwargs.update(
+        {
+            "image": node["image"],
+            "entrypoint": ["/bin/sh", "-c"],
+            "cmd": lean_shared.lean_tail_logs_cmd(node["service_name"])[2:],
+            "files": {
+                NODE_KEY_MOUNT: p2p_keys_artifact,
+                HASH_SIG_MOUNT: hash_sig_artifact,
+            },
+        }
     )
-    return plan.add_service(node["service_name"], cfg)
+    return plan.add_service(node["service_name"], ServiceConfig(**cfg_kwargs))
 
 
 def start(plan, node, service, genesis_artifact, hash_sig_artifact):
     service_name = service.name
+    log_file = lean_shared.lean_log_file_path(service_name)
+
+    plan.exec(
+        service_name=service_name,
+        recipe=ExecRecipe(
+            command=["/bin/sh", "-c", "mkdir -p {0}".format(GENESIS_MOUNT)],
+        ),
+        description="Preparing genesis mount on {0}".format(service_name),
+    )
+    for filename in GENESIS_TEXT_FILES:
+        read = plan.run_sh(
+            run="cat /src/{0}".format(filename),
+            files={"/src": genesis_artifact},
+            description="Reading {0} for {1}".format(filename, service_name),
+        )
+        plan.exec(
+            service_name=service_name,
+            recipe=ExecRecipe(
+                command=[
+                    "/bin/sh",
+                    "-c",
+                    "cat > {0}/{1} <<'ZEAM_EOF'\n{2}\nZEAM_EOF".format(
+                        GENESIS_MOUNT, filename, read.output,
+                    ),
+                ],
+            ),
+            description="Staging {0} into {1}".format(filename, service_name),
+        )
 
     cmd_parts = [
         ENTRYPOINT,
         "node",
-        "--custom-genesis",
-        GENESIS_MOUNT,
-        "--validator-config",
-        "{0}/validator-config.yaml".format(GENESIS_MOUNT),
-        "--data-dir",
-        DATA_DIR,
-        "--node-id",
-        node["node_name"],
-        "--node-key",
-        "{0}/{1}.key".format(NODE_KEY_MOUNT, node["node_name"]),
+        "--custom-genesis", GENESIS_MOUNT,
+        "--validator-config", "{0}/validator-config.yaml".format(GENESIS_MOUNT),
+        "--data-dir", DATA_DIR,
+        "--node-id", node["node_name"],
+        "--node-key", "{0}/{1}.key".format(NODE_KEY_MOUNT, node["node_name"]),
         "--metrics-enable",
-        "--api-port",
-        str(constants.LEAN_API_PORT_NUM),
-        "--metrics-port",
-        str(constants.LEAN_METRICS_PORT_NUM),
+        "--api-port", str(constants.LEAN_API_PORT_NUM),
+        "--metrics-port", str(constants.LEAN_METRICS_PORT_NUM),
     ]
     if node["is_aggregator"]:
         cmd_parts.append("--is-aggregator")
     for extra in node["extra_params"]:
         cmd_parts.append(extra)
 
-    log_file = lean_shared.lean_log_file_path(service_name)
-    full_cmd = " ".join(cmd_parts)
-
-    new_cfg = ServiceConfig(
-        image=node["image"],
-        entrypoint=["/bin/sh", "-c"],
-        cmd=["{0} 2>&1 | tee -a {1}".format(full_cmd, log_file)],
-        ports=lean_shared.lean_port_specs(),
-        files={
-            NODE_KEY_MOUNT: node["_p2p_keys_artifact"],
-            GENESIS_MOUNT: genesis_artifact,
-        },
-        env_vars=node["extra_env_vars"],
-        labels=node["extra_labels"],
-        min_cpu=node["min_cpu"],
-        max_cpu=node["max_cpu"],
-        min_memory=node["min_mem"],
-        max_memory=node["max_mem"],
-        node_selectors=node["node_selectors"],
-        tolerations=node["tolerations"],
+    nohup_cmd = "nohup {0} >> {1} 2>&1 &".format(
+        " ".join(cmd_parts),
+        log_file,
     )
-    new_service = plan.add_service(
-        name=service_name,
-        config=new_cfg,
-        force_update=True,
+    plan.exec(
+        service_name=service_name,
+        recipe=ExecRecipe(
+            command=["/bin/sh", "-c", nohup_cmd],
+        ),
+        description="Starting zeam binary on {0}".format(service_name),
     )
 
     api_url = "http://{0}:{1}".format(
-        new_service.ip_address, constants.LEAN_API_PORT_NUM
+        service.ip_address, constants.LEAN_API_PORT_NUM
     )
     metrics_url = "http://{0}:{1}/metrics".format(
-        new_service.ip_address,
+        service.ip_address,
         constants.LEAN_METRICS_PORT_NUM,
     )
 
     return lean_context.new_lean_context(
         client_name=constants.LEAN_TYPE.zeam,
-        service_name=new_service.name,
-        ip_address=new_service.ip_address,
+        service_name=service_name,
+        ip_address=service.ip_address,
         quic_port=constants.LEAN_QUIC_PORT_NUM,
         api_port=constants.LEAN_API_PORT_NUM,
         metrics_port=constants.LEAN_METRICS_PORT_NUM,
         api_url=api_url,
         metrics_url=metrics_url,
         metrics_info={
-            "name": new_service.name,
+            "name": service_name,
             "url": metrics_url,
             "path": "/metrics",
             "config": node["prometheus_config"],

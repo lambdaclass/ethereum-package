@@ -472,7 +472,14 @@ def input_parser(plan, input_args):
             )
         )
 
-    if result["network_params"]["fulu_fork_epoch"] != constants.FAR_FUTURE_EPOCH:
+    # Fulu / PeerDAS validation only applies to the Eth1 EL/CL participant
+    # network. Lean-only deployments (participants: [], lean_participants: [...])
+    # have no CL clients and therefore no PeerDAS surface, so we skip the
+    # validation when participants is empty.
+    if (
+        result["network_params"]["fulu_fork_epoch"] != constants.FAR_FUTURE_EPOCH
+        and len(result["participants"]) > 0
+    ):
         has_supernodes = False
         has_node_with_128_plus_validators = False
         num_perfect_peerdas_participants = 0
@@ -625,8 +632,12 @@ def input_parser(plan, input_args):
 
         _validate_ere_gpu_config(result["zkboost_params"]["zkvms"])
 
+    # The "first participant must have an EL" check only applies when there
+    # actually IS at least one Eth1 participant; lean-only deployments
+    # (participants: []) skip the EL/CL pipeline entirely.
     if (
-        "bootnodoor" not in result["additional_services"]
+        len(result["participants"]) > 0
+        and "bootnodoor" not in result["additional_services"]
         and result["participants"][0]["el_type"] == constants.EL_TYPE.none
     ):
         fail(
@@ -1129,6 +1140,11 @@ def input_parser(plan, input_args):
             builder_api=result["buildoor_params"]["builder_api"],
             epbs_builder=result["buildoor_params"]["epbs_builder"],
         ),
+        # Lean Ethereum. Stored as plain lists/dicts (not nested structs)
+        # because the Lean per-client launchers reach for fields by string
+        # key — see src/lean/lean_launcher.star.
+        lean_participants=result["lean_participants"],
+        lean_network_params=result["lean_network_params"],
     )
 
 

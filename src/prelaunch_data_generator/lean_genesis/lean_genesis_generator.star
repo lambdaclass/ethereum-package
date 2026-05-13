@@ -57,11 +57,24 @@ def _compute_genesis_time(plan, lean_network_params):
     return result.output
 
 
-def _render_validator_config(plan, services_meta, lean_network_params):
+def _render_validator_config(plan, services_meta, lean_network_params, keys_artifact):
     """Render validator-config.yaml from per-node IPs / ports / keys.
 
-    `services_meta` is a list of dicts with keys: name, ip_address, quic_port,
-    metrics_port, api_port, privkey, validator_count, is_aggregator.
+    Two-stage render:
+
+      Stage 1 - `plan.render_templates` produces validator-config.yaml with
+        IPs and ports substituted from Kurtosis runtime futures, but the
+        privkey field set to a placeholder marker `__PRIVKEY_<node_name>__`.
+        Kurtosis's template engine handles the IP futures correctly; trying
+        to embed them inside a raw shell heredoc doesn't (the {{kurtosis:...}}
+        markers reach the shell before substitution and break sh parsing).
+
+      Stage 2 - `plan.run_sh` reads the placeholders and replaces each one
+        with the corresponding key from the lean-node-keys artifact via sed.
+        The shell never sees a Kurtosis future, only literal text.
+
+    `services_meta` is a list of dicts with keys: name, ip_address,
+    quic_port, metrics_port, api_port, validator_count, is_aggregator.
     """
     template = """shuffle: roundrobin
 deployment_mode: kurtosis
@@ -71,33 +84,32 @@ config:
   attestation_committee_count: {{.AttestationCommitteeCount}}
 validators:
 {{- range .Validators}}
-  - name: "{{.name}}"
-    privkey: "{{.privkey}}"
+  - name: "{{.Name}}"
+    privkey: "__PRIVKEY_{{.Name}}__"
     enrFields:
-      ip: "{{.ip}}"
-      quic: {{.quic}}
-    metricsPort: {{.metricsPort}}
-    apiPort: {{.apiPort}}
-    isAggregator: {{.isAggregator}}
-    count: {{.count}}
+      ip: "{{.Ip}}"
+      quic: {{.Quic}}
+    metricsPort: {{.MetricsPort}}
+    apiPort: {{.ApiPort}}
+    isAggregator: {{.IsAggregator}}
+    count: {{.Count}}
 {{end}}"""
 
     validators = []
     for meta in services_meta:
         validators.append(
             {
-                "name": meta["name"],
-                "privkey": meta["privkey"],
-                "ip": meta["ip_address"],
-                "quic": meta["quic_port"],
-                "metricsPort": meta["metrics_port"],
-                "apiPort": meta["api_port"],
-                "isAggregator": "true" if meta["is_aggregator"] else "false",
-                "count": meta["validator_count"],
+                "Name": meta["name"],
+                "Ip": meta["ip_address"],
+                "Quic": meta["quic_port"],
+                "MetricsPort": meta["metrics_port"],
+                "ApiPort": meta["api_port"],
+                "IsAggregator": "true" if meta["is_aggregator"] else "false",
+                "Count": meta["validator_count"],
             }
         )
 
-    return plan.render_templates(
+    template_artifact = plan.render_templates(
         config={
             "validator-config.yaml": struct(
                 template=template,
@@ -110,9 +122,39 @@ validators:
                 },
             ),
         },
-        name="lean-validator-config",
-        description="Rendering Lean validator-config.yaml",
+        name="lean-validator-config-template",
+        description="Rendering Lean validator-config.yaml (stage 1, placeholders)",
     )
+
+    # Stage 2: sed each `__PRIVKEY_<name>__` to the contents of the
+    # matching `/keys/<name>.key`. Run inside a single shell so we don't
+    # have to thread Kurtosis futures through more steps.
+    sed_lines = ["set -eu", "mkdir -p /out", "cp /tpl/validator-config.yaml /out/"]
+    for meta in services_meta:
+        # The privkey file holds a raw 64-char hex string with no surrounding
+        # whitespace. Use sed with a `|` delimiter since the key is hex
+        # (which never contains `|`) and the placeholder is unique.
+        sed_lines.append(
+            (
+                "key=$(cat /keys/{0}.key) && "
+                + "sed -i \"s|__PRIVKEY_{0}__|$key|\" /out/validator-config.yaml"
+            ).format(meta["name"])
+        )
+    sed_script = "\n".join(sed_lines)
+
+    result = plan.run_sh(
+        run=sed_script,
+        # alpine/openssl already lives in the engine cache from the P2P
+        # key generation step and ships busybox sed.
+        image="alpine/openssl",
+        files={
+            "/tpl": template_artifact,
+            "/keys": keys_artifact,
+        },
+        store=[StoreSpec(src="/out/validator-config.yaml", name="lean-validator-config")],
+        description="Rendering Lean validator-config.yaml (stage 2, privkey inlining)",
+    )
+    return result.files_artifacts[0]
 
 
 def _render_initial_config(plan, genesis_time, lean_network_params, total_validators):
@@ -162,10 +204,14 @@ def _generate_hash_sig_keys(plan, image, num_validators, active_epoch):
     tree becomes the `lean-hash-sig-keys` artifact mounted at the Lean
     client's `--hash-sig-keys-dir`.
     """
+    # The binary in `blockblaz/hash-sig-cli:latest` is `hashsig` (the image's
+    # ENTRYPOINT). Kurtosis's `plan.run_sh` overrides the entrypoint with
+    # `sh -c`, so we have to call the binary by its absolute path. It lives
+    # at `/usr/local/bin/hashsig`.
     plan.run_sh(
         run=(
             "mkdir -p {0} && "
-            + "hash-sig-cli generate "
+            + "/usr/local/bin/hashsig generate "
             + "--num-validators {1} "
             + "--log-num-active-epochs {2} "
             + "--output-dir {0} "
@@ -180,6 +226,28 @@ def _generate_hash_sig_keys(plan, image, num_validators, active_epoch):
         ),
     )
     return HASH_SIG_ARTIFACT_NAME
+
+
+def generate_hash_sig_keys(plan, lean_network_params, total_validators):
+    """Public wrapper around _generate_hash_sig_keys.
+
+    Exposed so `lean_launcher.launch` can pre-create the hash-sig artifact
+    before any service is added. This lets every Lean client mount the keys
+    at `initialize()` time (the keys are IP-independent), keeping us inside
+    Kurtosis's "one add_service per name" constraint.
+    """
+    if total_validators < 1:
+        fail(
+            "Lean genesis requires at least one validator across all "
+            + "lean_participants (got 0).",
+        )
+    _, hash_sig_image = _resolve_images(lean_network_params)
+    return _generate_hash_sig_keys(
+        plan,
+        hash_sig_image,
+        total_validators,
+        lean_network_params["active_epoch"],
+    )
 
 
 def _run_genesis_tool(
@@ -247,58 +315,126 @@ def _post_process(
         every client just mounts `/network-configs` and reads everything it
         needs from one place.
 
-    Implemented in shell + yq inside a single busybox-style helper because
-    Starlark has no yaml/json libs.
+    Implemented as a Python script (Starlark has no YAML libs and busybox
+    `sh` in common images chokes on heredocs with embedded interpreters).
+    The script is rendered as a separate artifact via `render_templates`
+    and invoked by a tiny shell wrapper - no heredocs reach `sh`.
     """
+    # The script reads the hash-sig manifest, PK's validators.yaml output,
+    # and the raw genesis bundle, then writes:
+    #   - /out/config.yaml with GENESIS_VALIDATORS appended (dual-key layout)
+    #   - /out/annotated_validators.yaml (node_name -> [{index, pubkey_hex,
+    #     privkey_file}, ...] with attester + proposer rows per index)
+    #   - all other genesis files copied through unchanged
+    #   - hash-sig keys bundled into ./hash-sig-keys/
+    #   - per-node `<name>.key` libp2p secrets bundled at the top level
+    python_source = """import os
+import shutil
+import yaml
+
+RAW = "/raw"
+HASH_SIG = "/hash-sig"
+VC = "/vc"
+NODE_KEYS = "/node-keys"
+OUT = "/out"
+MANIFEST = os.path.join(HASH_SIG, "validator-keys-manifest.yaml")
+
+
+def _as_hex(value):
+    # Normalise a pubkey field to a no-0x-prefix lowercase hex string.
+    # YAML 1.1 (PyYAML default) interprets unquoted `0x...` tokens as
+    # integers, so each field may arrive as either int or str depending on
+    # how hash-sig-cli wrote the manifest. Handle both.
+    if isinstance(value, int):
+        return format(value, "x")
+    s = str(value)
+    if s.startswith("0x") or s.startswith("0X"):
+        s = s[2:]
+    return s
+
+
+def copytree_into(src, dst):
+    os.makedirs(dst, exist_ok=True)
+    for entry in os.listdir(src):
+        s = os.path.join(src, entry)
+        d = os.path.join(dst, entry)
+        if os.path.isdir(s):
+            shutil.copytree(s, d, dirs_exist_ok=True)
+        else:
+            shutil.copy2(s, d)
+
+
+# Stage 1: bundle all input artifacts into /out.
+os.makedirs(OUT, exist_ok=True)
+copytree_into(RAW, OUT)
+shutil.copy2(os.path.join(VC, "validator-config.yaml"), OUT)
+for f in os.listdir(NODE_KEYS):
+    if f.endswith(".key"):
+        shutil.copy2(os.path.join(NODE_KEYS, f), OUT)
+copytree_into(HASH_SIG, os.path.join(OUT, "hash-sig-keys"))
+
+# Stage 2: append GENESIS_VALIDATORS (dual-key) to config.yaml.
+with open(MANIFEST) as f:
+    manifest = yaml.safe_load(f)
+
+gv_lines = ["", "# Genesis validator public keys (post-quantum hash-sig)", "GENESIS_VALIDATORS:"]
+for v in manifest["validators"]:
+    ah = _as_hex(v["attester_key_pubkey_hex"])
+    ph = _as_hex(v["proposer_key_pubkey_hex"])
+    gv_lines.append('  - attestation_pubkey: "{0}"'.format(ah))
+    gv_lines.append('    proposal_pubkey: "{0}"'.format(ph))
+with open(os.path.join(OUT, "config.yaml"), "a") as f:
+    f.write("\\n".join(gv_lines) + "\\n")
+
+# Stage 3: render annotated_validators.yaml from validators.yaml + manifest.
+with open(os.path.join(OUT, "validators.yaml")) as f:
+    assignments = yaml.safe_load(f) or {}
+
+ann_lines = []
+for node, indices in assignments.items():
+    ann_lines.append("{0}:".format(node))
+    if not indices:
+        ann_lines.append("  []")
+        continue
+    for idx in indices:
+        v = manifest["validators"][int(idx)]
+        ah = _as_hex(v["attester_key_pubkey_hex"])
+        ph = _as_hex(v["proposer_key_pubkey_hex"])
+        ann_lines.append("  - index: {0}".format(idx))
+        ann_lines.append("    pubkey_hex: {0}".format(ah))
+        ann_lines.append(
+            "    privkey_file: validator_{0}_attester_key_sk.ssz".format(idx)
+        )
+        ann_lines.append("  - index: {0}".format(idx))
+        ann_lines.append("    pubkey_hex: {0}".format(ph))
+        ann_lines.append(
+            "    privkey_file: validator_{0}_proposer_key_sk.ssz".format(idx)
+        )
+with open(os.path.join(OUT, "annotated_validators.yaml"), "w") as f:
+    f.write("\\n".join(ann_lines) + "\\n")
+"""
+
+    script_artifact = plan.render_templates(
+        config={
+            "post_process.py": struct(template=python_source, data={}),
+        },
+        name="lean-post-process-script",
+        description="Rendering Lean genesis post-process script",
+    )
+
     return plan.run_sh(
-        run="""
-            set -eu
-            mkdir -p /out /out/hash-sig-keys
-            cp /raw/* /out/
-            cp /vc/validator-config.yaml /out/
-            cp /node-keys/*.key /out/
-            # Bundle hash-sig keys into the same artifact (nested file artifact
-            # mounts can't overlap in Kurtosis, so we ship a single tree).
-            cp -r /hash-sig/. /out/hash-sig-keys/
-
-            # Append GENESIS_VALIDATORS to config.yaml (dual-key layout).
-            manifest=/hash-sig/validator-keys-manifest.yaml
-            n=$(yq eval '.validators | length' "$manifest")
-            printf '\\n# Genesis validator public keys (post-quantum hash-sig)\\nGENESIS_VALIDATORS:\\n' >> /out/config.yaml
-            i=0
-            while [ "$i" -lt "$n" ]; do
-                ah=$(yq eval ".validators[$i].attester_key_pubkey_hex" "$manifest" | sed 's/^0x//')
-                ph=$(yq eval ".validators[$i].proposer_key_pubkey_hex" "$manifest" | sed 's/^0x//')
-                printf '  - attestation_pubkey: "%s"\\n    proposal_pubkey: "%s"\\n' "$ah" "$ph" >> /out/config.yaml
-                i=$((i + 1))
-            done
-
-            # Render annotated_validators.yaml from validators.yaml (PK output)
-            # joined with the manifest. Each validator index gets two rows
-            # (attester + proposer) so clients can route by filename.
-            : > /out/annotated_validators.yaml
-            for node in $(yq eval 'keys | .[]' /out/validators.yaml); do
-                printf '%s:\\n' "$node" >> /out/annotated_validators.yaml
-                indices=$(yq eval ".\\"$node\\" | .[]" /out/validators.yaml)
-                if [ -z "$indices" ]; then
-                    printf '  []\\n' >> /out/annotated_validators.yaml
-                    continue
-                fi
-                for idx in $indices; do
-                    ah=$(yq eval ".validators[$idx].attester_key_pubkey_hex" "$manifest" | sed 's/^0x//')
-                    ph=$(yq eval ".validators[$idx].proposer_key_pubkey_hex" "$manifest" | sed 's/^0x//')
-                    printf '  - index: %s\\n    pubkey_hex: %s\\n    privkey_file: validator_%s_attester_key_sk.ssz\\n' "$idx" "$ah" "$idx" >> /out/annotated_validators.yaml
-                    printf '  - index: %s\\n    pubkey_hex: %s\\n    privkey_file: validator_%s_proposer_key_sk.ssz\\n' "$idx" "$ph" "$idx" >> /out/annotated_validators.yaml
-                done
-            done
-        """,
-        # mikefarah/yq image ships yq + busybox; we don't need anything else.
-        image="mikefarah/yq:4",
+        run=(
+            "set -eu; "
+            + "pip install --quiet --root-user-action=ignore pyyaml; "
+            + "python3 /script/post_process.py"
+        ),
+        image="python:3-alpine",
         files={
             "/raw": raw_genesis_artifact,
             "/hash-sig": hash_sig_artifact,
             "/vc": validator_config_artifact,
             "/node-keys": node_key_artifact,
+            "/script": script_artifact,
         },
         store=[
             StoreSpec(src="/out", name=GENESIS_ARTIFACT_NAME),
@@ -307,19 +443,26 @@ def _post_process(
     ).files_artifacts[0]
 
 
-def generate(plan, services_meta, lean_network_params, node_key_artifact):
+def generate(
+    plan,
+    services_meta,
+    lean_network_params,
+    node_key_artifact,
+    hash_sig_artifact,
+):
     """Top-level entrypoint.
 
     Args:
         plan: Kurtosis plan.
         services_meta: list of dicts (one per node) with: name, ip_address,
-            quic_port, metrics_port, api_port, privkey (hex string),
-            validator_count, is_aggregator. The caller (lean_launcher) builds
-            this list after Kurtosis has assigned IPs to the placeholder
-            services.
+            quic_port, metrics_port, api_port, validator_count, is_aggregator.
+            The caller (lean_launcher) builds this list after Kurtosis has
+            assigned IPs to the placeholder services.
         lean_network_params: validated `lean_network_params` block.
         node_key_artifact: files artifact holding `<node>.key` ASCII-hex P2P
             secrets (one per node).
+        hash_sig_artifact: files artifact holding the XMSS attester+proposer
+            keypairs (pre-generated by `generate_hash_sig_keys`).
 
     Returns:
         struct(genesis_artifact = <name>, hash_sig_artifact = <name>,
@@ -335,20 +478,14 @@ def generate(plan, services_meta, lean_network_params, node_key_artifact):
             + "lean_participants (got 0).",
         )
 
-    genesis_image, hash_sig_image = _resolve_images(lean_network_params)
+    genesis_image, _ = _resolve_images(lean_network_params)
     genesis_time = _compute_genesis_time(plan, lean_network_params)
-
-    hash_sig_artifact = _generate_hash_sig_keys(
-        plan,
-        hash_sig_image,
-        total_validators,
-        lean_network_params["active_epoch"],
-    )
 
     validator_config_artifact = _render_validator_config(
         plan,
         services_meta,
         lean_network_params,
+        node_key_artifact,
     )
 
     initial_config_artifact = _render_initial_config(

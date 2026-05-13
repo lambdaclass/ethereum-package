@@ -57,14 +57,12 @@ nodes by URL.
 
 ## Quick start
 
-Enable Lean by populating `lean_participants:` in your args file:
+Lean consensus is fully standalone — no Engine API, no EL counterpart.
+A Lean network configuration therefore contains ONLY `lean_participants:`
+(set `participants: []` to skip the Eth1 EL/CL flow entirely):
 
 ```yaml
-participants:
-  - el_type: geth
-    cl_type: lighthouse
-    count: 1
-    validator_count: 0  # No EL/CL validators; we just need one EL+CL pair.
+participants: []
 
 lean_participants:
   - lean_type: ethlambda
@@ -88,12 +86,13 @@ The Lean pipeline produces 4 services named `lean-ethlambda_0` …
 | 5052  | REST API (`GET /lean/v0/health`, fork choice, …) |
 | 5054  | Prometheus metrics (`/metrics`)                  |
 
-> **V1 limitation — at least one EL/CL participant required.** The existing
-> EL/CL flow assumes at least one EL context exists (e.g. for the
-> tx-spammer / dora target). Until lean-only mode is plumbed through every
-> downstream consumer, keep one minimal `participants[]` entry with
-> `validator_count: 0`. A follow-up will detect `participants: []` and
-> short-circuit the EL/CL pipeline.
+### Mixed mode (Lean + EL/CL)
+
+You can also run Lean alongside the existing Eth1 EL/CL network in the same
+enclave. Both pipelines run independently — there is no cross-talk between
+them. Add `participants:` entries as you normally would and keep
+`lean_participants:` populated. This is useful for side-by-side benchmarking
+and observability dashboards that scrape both.
 
 ---
 
@@ -205,20 +204,20 @@ operator-facing dashboards and probes work across deployments.
 
 ## Limitations & follow-ups
 
-1. **At least one EL/CL participant required.** The existing main flow
-   assumes `all_el_contexts[0]` exists for the tx-spammer / dora target.
-   Until lean-only mode is wired through every downstream consumer, keep
-   one minimal `participants[]` entry with `validator_count: 0`.
-2. **Lean nodes are not yet scraped by Prometheus.** The `metrics_info`
+1. **Lean nodes are not yet scraped by Prometheus.** The `metrics_info`
    struct is populated on every `lean_context`, but the prometheus
    launcher isn't yet wired to discover Lean nodes. Operators scraping
    Lean nodes today should hit them by service name directly.
-3. **`hash-sig-cli` image is pinned to `:latest`.** Pinning to a SHA is
+2. **`hash-sig-cli` image is pinned to `:latest`.** Pinning to a SHA is
    left to a follow-up; override via
    `lean_network_params.hash_sig_cli_image`.
-4. **No Lean-specific dashboards.** Existing Grafana dashboards assume the
+3. **No Lean-specific dashboards.** Existing Grafana dashboards assume the
    Ethereum CL schema. Lean dashboards (`lean_head_slot`,
    `lean_state_transition_time_seconds`, etc.) need a separate dashboard
    pack.
-5. **No checkpoint sync.** Per-participant `checkpoint_sync_url` parsing
+4. **No checkpoint sync.** Per-participant `checkpoint_sync_url` parsing
    is not yet wired through to the per-client launchers.
+5. **Mixed-mode auxiliary services.** When Lean is run alongside EL/CL,
+   the existing Eth1 auxiliary services (tx-fuzz, dora, etc.) only see
+   the EL/CL participants. Wiring them to also point at Lean nodes is a
+   follow-up.
