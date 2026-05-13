@@ -1,6 +1,7 @@
 input_parser = import_module("./src/package_io/input_parser.star")
 constants = import_module("./src/package_io/constants.star")
 participant_network = import_module("./src/participant_network.star")
+lean_launcher = import_module("./src/lean/lean_launcher.star")
 shared_utils = import_module("./src/shared_utils/shared_utils.star")
 static_files = import_module("./src/static_files/static_files.star")
 genesis_constants = import_module(
@@ -328,6 +329,18 @@ def run(plan, args={}):
             participant.ethereum_metrics_exporter_context
         )
         all_xatu_sentry_contexts.append(participant.xatu_sentry_context)
+
+    # Launch Lean Ethereum consensus participants alongside the EL/CL network.
+    # Lean is a standalone consensus stack (no EL pairing, no Engine API, no
+    # JWT, post-quantum signatures); it runs through its own pipeline and
+    # produces independent file artifacts + services. The list is empty
+    # unless the user populated `lean_participants:` in their args.
+    # See docs/lean-consensus.md for the architecture.
+    all_lean_contexts = lean_launcher.launch(
+        plan,
+        args_with_right_defaults.lean_participants,
+        args_with_right_defaults.lean_network_params,
+    )
 
     # Generate validator ranges
     validator_ranges_config_template = read_file(

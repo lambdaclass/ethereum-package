@@ -22,6 +22,23 @@ CL_TYPE = struct(
     caplin="caplin",
 )
 
+# Lean Ethereum consensus clients. These are standalone consensus clients
+# for the Lean Ethereum specification (post-quantum signatures, no EL pairing,
+# no Engine API). They run via the separate Lean pipeline in src/lean/ and
+# do NOT belong in `participants:`; use `lean_participants:` instead.
+LEAN_TYPE = struct(
+    ethlambda="ethlambda",
+    ream="ream",
+    zeam="zeam",
+    qlean="qlean",
+    lantern="lantern",
+    grandine="grandine",
+    lighthouse="lighthouse",
+    gean="gean",
+    peam="peam",
+    nlean="nlean",
+)
+
 VC_TYPE = struct(
     lighthouse="lighthouse",
     lodestar="lodestar",
@@ -110,6 +127,31 @@ DEFAULT_BOOTNODOOR_IMAGE = "ethpandaops/bootnodoor:latest"
 DEFAULT_ETHEREUM_GENESIS_GENERATOR_IMAGE = (
     "ethpandaops/ethereum-genesis-generator:6.0.6"
 )
+
+# Lean genesis tooling. `pk910-leanchain` is pk910's leanchain branch of
+# eth-beacon-genesis (ethpandaops/eth-beacon-genesis PR #36); it consumes a
+# validator-config.yaml and emits config.yaml + validators.yaml + nodes.yaml +
+# genesis.{ssz,json}. `hash-sig-cli` generates the XMSS attester/proposer
+# keypairs that GENESIS_VALIDATORS references.
+DEFAULT_LEAN_GENESIS_GENERATOR_IMAGE = "ethpandaops/eth-beacon-genesis:pk910-leanchain"
+DEFAULT_LEAN_HASH_SIG_CLI_IMAGE = "blockblaz/hash-sig-cli:latest"
+
+# Lean P2P / API / metrics port IDs and defaults. Lean clients speak QUIC over
+# UDP only (no TCP discovery), expose a JSON REST API, and a Prometheus metrics
+# endpoint on a separate port — the same triple used by every Lean client in
+# blockblaz/lean-quickstart.
+LEAN_QUIC_PORT_ID = "quic"
+LEAN_API_PORT_ID = "http"
+LEAN_METRICS_PORT_ID = "metrics"
+LEAN_QUIC_PORT_NUM = 9000
+LEAN_API_PORT_NUM = 5052
+LEAN_METRICS_PORT_NUM = 5054
+
+# Mountpoints inside Lean client containers. Kept stable across all Lean
+# clients so the integration contract documented in docs/lean-adding-a-new-client.md
+# matches what clients receive at runtime.
+LEAN_GENESIS_MOUNTPOINT_ON_CLIENTS = "/network-configs"
+LEAN_NODE_KEY_MOUNTPOINT_ON_CLIENTS = "/node-keys"
 DEFAULT_YQ_IMAGE = "linuxserver/yq"
 DEFAULT_FLASHBOTS_RELAY_IMAGE = "ethpandaops/mev-boost-relay:main"
 DEFAULT_FLASHBOTS_BUILDER_IMAGE = "ethpandaops/reth-rbuilder:develop"

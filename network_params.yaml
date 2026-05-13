@@ -291,3 +291,33 @@ port_publisher:
 #     #!/bin/bash
 #     echo "Hello"
 extra_files: {}
+
+# Lean Ethereum consensus participants. Each entry adds one or more Lean
+# consensus nodes that run alongside (and independently of) the EL/CL
+# network above. Lean has no EL pairing, no Engine API, no JWT, and uses
+# post-quantum (XMSS) validator signatures. See docs/lean-consensus.md for
+# the architecture and docs/lean-adding-a-new-client.md for adding a new
+# Lean client.
+#
+# Example - 4 ethlambda nodes with one validator each:
+# lean_participants:
+#   - lean_type: ethlambda
+#     lean_image: ghcr.io/lambdaclass/ethlambda:devnet4
+#     count: 4
+#     validator_count: 1
+#     is_aggregator: false
+lean_participants: []
+lean_network_params:
+  # Seconds added to "now" to compute GENESIS_TIME when genesis_time is 0.
+  genesis_delay: 60
+  # Explicit Unix timestamp; 0 = derive from genesis_delay.
+  genesis_time: 0
+  # leanSpec ATTESTATION_COMMITTEE_COUNT (1 = single committee per slot).
+  attestation_committee_count: 1
+  # log_2(active epochs) for the XMSS hash-sig scheme.
+  active_epoch: 18
+  # Default validator keys per node (overridable per participant).
+  num_validator_keys_per_node: 1
+  # Override the Lean genesis tooling images. Empty = pinned default.
+  genesis_generator_image: ""
+  hash_sig_cli_image: ""

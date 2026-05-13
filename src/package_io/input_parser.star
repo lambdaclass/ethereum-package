@@ -65,6 +65,22 @@ DEFAULT_REMOTE_SIGNER_IMAGES = {
     "web3signer": "consensys/web3signer:latest",
 }
 
+# Default Lean Ethereum client images. Mirrors the image list maintained by
+# blockblaz/lean-quickstart so devnet operators can swap between the two
+# launchers (Kurtosis vs lean-quickstart) without rebuilding.
+DEFAULT_LEAN_IMAGES = {
+    constants.LEAN_TYPE.ethlambda: "ghcr.io/lambdaclass/ethlambda:devnet4",
+    constants.LEAN_TYPE.ream: "ghcr.io/reamlabs/ream:latest-devnet4",
+    constants.LEAN_TYPE.zeam: "blockblaz/zeam:devnet4",
+    constants.LEAN_TYPE.qlean: "qdrvm/qlean-mini:devnet-4-amd64",
+    constants.LEAN_TYPE.lantern: "piertwo/lantern:v0.0.4",
+    constants.LEAN_TYPE.grandine: "sifrai/lean:devnet-4",
+    constants.LEAN_TYPE.lighthouse: "hopinheimer/lighthouse:latest",
+    constants.LEAN_TYPE.gean: "ghcr.io/geanlabs/gean:devnet4",
+    constants.LEAN_TYPE.peam: "",  # No published image yet
+    constants.LEAN_TYPE.nlean: "",  # No published image yet
+}
+
 # MEV Params
 MEV_BOOST_PORT = 18550
 
@@ -73,6 +89,8 @@ DEFAULT_ADDITIONAL_SERVICES = []
 ATTR_TO_BE_SKIPPED_AT_ROOT = (
     "network_params",
     "participants",
+    "lean_participants",
+    "lean_network_params",
     "mev_params",
     "blockscout_params",
     "dora_params",
@@ -136,6 +154,18 @@ def input_parser(plan, input_args):
     result["mempool_bridge_params"] = get_default_mempool_bridge_params()
     result["zkboost_params"] = get_default_zkboost_params()
     result["buildoor_params"] = get_default_buildoor_params()
+
+    # Lean Ethereum: defaults are empty; users opt in by providing
+    # `lean_participants:` in their args. Parsed below if present.
+    result["lean_participants"] = []
+    result["lean_network_params"] = default_lean_network_params()
+    if "lean_participants" in input_args and input_args["lean_participants"]:
+        result["lean_participants"] = parse_lean_participants(
+            input_args["lean_participants"]
+        )
+    if "lean_network_params" in input_args:
+        for k, v in input_args["lean_network_params"].items():
+            result["lean_network_params"][k] = v
 
     if constants.NETWORK_NAME.shadowfork in result["network_params"]["network"]:
         shadow_base = result["network_params"]["network"].split("-shadowfork")[0]
@@ -2552,3 +2582,87 @@ def get_devnet_modified_images(network_name, default_images):
             modified_images[client_type] = get_devnet_image_tag(network_name, image)
 
     return modified_images
+
+
+# ---------------------------------------------------------------------------
+# Lean Ethereum parsing
+# ---------------------------------------------------------------------------
+# Lean consensus is a standalone, post-quantum-signature consensus stack. It
+# does not pair with an EL, has no Engine API / JWT, and uses its own
+# genesis pipeline (PK's eth-beacon-genesis leanchain). Lean participants
+# therefore live in a separate `lean_participants:` list and run through
+# `src/lean/lean_launcher.star`.
+
+
+def default_lean_participant():
+    return {
+        "lean_type": constants.LEAN_TYPE.ethlambda,
+        "lean_image": "",
+        "lean_log_level": "",
+        "lean_extra_params": [],
+        "lean_extra_env_vars": {},
+        "lean_extra_labels": {},
+        "lean_min_cpu": 0,
+        "lean_max_cpu": 0,
+        "lean_min_mem": 0,
+        "lean_max_mem": 0,
+        "count": 1,
+        "validator_count": 1,
+        "is_aggregator": False,
+        "node_selectors": {},
+        "tolerations": [],
+        "prometheus_config": {"scrape_interval": "15s", "labels": {}},
+    }
+
+
+def default_lean_network_params():
+    # Genesis timing and shape parameters consumed by the Lean genesis tool
+    # (eth-beacon-genesis leanchain). Keep them flat to mirror the
+    # `validator-config.yaml.config` block expected by the generator and by
+    # every Lean client's CLI.
+    return {
+        # Seconds added to "now" to compute GENESIS_TIME when the user does
+        # not pass an absolute genesis_time. 60s gives all containers time to
+        # boot, mount artifacts, and reach the gossip mesh before slot 0.
+        "genesis_delay": 60,
+        # Explicit Unix timestamp; 0 = derive from genesis_delay.
+        "genesis_time": 0,
+        # leanSpec ATTESTATION_COMMITTEE_COUNT. 1 = single committee per slot
+        # (the only configuration covered by the spec tests today).
+        "attestation_committee_count": 1,
+        # log_2(active epochs) for the XMSS hash-sig scheme. 18 matches the
+        # default in lean-quickstart's validator-config.yaml.
+        "active_epoch": 18,
+        # Number of validator hash-sig keypairs to assign to each node when
+        # the participant does not override `validator_count`.
+        "num_validator_keys_per_node": 1,
+        # Image overrides for the Lean genesis tooling. Empty = use the
+        # `DEFAULT_LEAN_GENESIS_GENERATOR_IMAGE` / `DEFAULT_LEAN_HASH_SIG_CLI_IMAGE`
+        # constants. Override to pin a specific PK genesis-tool commit.
+        "genesis_generator_image": "",
+        "hash_sig_cli_image": "",
+    }
+
+
+def parse_lean_participants(raw_participants):
+    """Normalize the lean_participants list by filling defaults per-entry."""
+    parsed = []
+    for raw in raw_participants:
+        entry = default_lean_participant()
+        for k, v in raw.items():
+            entry[k] = v
+        # Resolve image: explicit override > registry default. We fail fast
+        # rather than silently shipping an empty image string downstream
+        # because Kurtosis's error in that case is opaque ("invalid image: ").
+        if entry["lean_image"] == "":
+            default_image = DEFAULT_LEAN_IMAGES.get(entry["lean_type"], "")
+            if default_image == "":
+                fail(
+                    "lean_type '{0}' has no default image; please set "
+                    "`lean_image` on this participant.".format(entry["lean_type"])
+                )
+            entry["lean_image"] = default_image
+        if entry["count"] < 1:
+            fail("lean_participants[].count must be >= 1")
+        parsed.append(entry)
+    return parsed
