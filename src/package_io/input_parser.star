@@ -65,18 +65,20 @@ DEFAULT_REMOTE_SIGNER_IMAGES = {
     "web3signer": "consensys/web3signer:latest",
 }
 
-# Default Lean Ethereum client images. Mirrors the image list maintained by
-# blockblaz/lean-quickstart so devnet operators can swap between the two
-# launchers (Kurtosis vs lean-quickstart) without rebuilding.
+# Default Lean Ethereum client images. Each entry points at the client's
+# generic `:latest` tag so the defaults don't rot when a new devnet
+# generation ships. Operators pin a specific devnet by setting
+# `lean_image:` per-participant in their args file (see
+# `docs/lean-consensus.md` for a worked devnet4 example).
 DEFAULT_LEAN_IMAGES = {
-    constants.LEAN_TYPE.ethlambda: "ghcr.io/lambdaclass/ethlambda:devnet4",
-    constants.LEAN_TYPE.ream: "ghcr.io/reamlabs/ream:latest-devnet4",
-    constants.LEAN_TYPE.zeam: "blockblaz/zeam:devnet4",
-    constants.LEAN_TYPE.qlean: "qdrvm/qlean-mini:devnet-4-amd64",
-    constants.LEAN_TYPE.lantern: "piertwo/lantern:v0.0.4",
-    constants.LEAN_TYPE.grandine: "sifrai/lean:devnet-4",
+    constants.LEAN_TYPE.ethlambda: "ghcr.io/lambdaclass/ethlambda:latest",
+    constants.LEAN_TYPE.ream: "ghcr.io/reamlabs/ream:latest",
+    constants.LEAN_TYPE.zeam: "blockblaz/zeam:latest",
+    constants.LEAN_TYPE.qlean: "qdrvm/qlean-mini:latest",
+    constants.LEAN_TYPE.lantern: "piertwo/lantern:latest",
+    constants.LEAN_TYPE.grandine: "sifrai/lean:latest",
     constants.LEAN_TYPE.lighthouse: "hopinheimer/lighthouse:latest",
-    constants.LEAN_TYPE.gean: "ghcr.io/geanlabs/gean:devnet4",
+    constants.LEAN_TYPE.gean: "ghcr.io/geanlabs/gean:latest",
     constants.LEAN_TYPE.peam: "",  # No published image yet
     constants.LEAN_TYPE.nlean: "",  # No published image yet
 }
