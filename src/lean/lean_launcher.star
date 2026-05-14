@@ -28,6 +28,11 @@ p2p_keys = import_module(
 ethlambda_launcher = import_module("./ethlambda/ethlambda_launcher.star")
 ream_launcher = import_module("./ream/ream_launcher.star")
 zeam_launcher = import_module("./zeam/zeam_launcher.star")
+qlean_launcher = import_module("./qlean/qlean_launcher.star")
+lantern_launcher = import_module("./lantern/lantern_launcher.star")
+grandine_launcher = import_module("./grandine/grandine_launcher.star")
+lighthouse_launcher = import_module("./lighthouse/lighthouse_launcher.star")
+gean_launcher = import_module("./gean/gean_launcher.star")
 metrics_launcher = import_module("./metrics/metrics_launcher.star")
 
 
@@ -38,6 +43,16 @@ def _launcher_for(lean_type):
         return ream_launcher
     elif lean_type == constants.LEAN_TYPE.zeam:
         return zeam_launcher
+    elif lean_type == constants.LEAN_TYPE.qlean:
+        return qlean_launcher
+    elif lean_type == constants.LEAN_TYPE.lantern:
+        return lantern_launcher
+    elif lean_type == constants.LEAN_TYPE.grandine:
+        return grandine_launcher
+    elif lean_type == constants.LEAN_TYPE.lighthouse:
+        return lighthouse_launcher
+    elif lean_type == constants.LEAN_TYPE.gean:
+        return gean_launcher
     fail(
         "Unsupported lean_type '{0}'. Supported: {1}. See ".format(
             lean_type,
@@ -46,6 +61,11 @@ def _launcher_for(lean_type):
                     constants.LEAN_TYPE.ethlambda,
                     constants.LEAN_TYPE.ream,
                     constants.LEAN_TYPE.zeam,
+                    constants.LEAN_TYPE.qlean,
+                    constants.LEAN_TYPE.lantern,
+                    constants.LEAN_TYPE.grandine,
+                    constants.LEAN_TYPE.lighthouse,
+                    constants.LEAN_TYPE.gean,
                 ]
             ),
         )
