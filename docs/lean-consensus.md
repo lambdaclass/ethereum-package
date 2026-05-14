@@ -6,10 +6,14 @@
 > have stub launchers covered by the same contract.
 
 The Lean Ethereum protocol — sometimes called "Beam Chain" — is a redesign of
-Ethereum's consensus layer with **no EL pairing**, **no Engine API**, **no
-JWT**, and **post-quantum (XMSS / hash-sig) validator signatures**. Lean
-consensus clients are standalone consensus nodes that talk only to each other
-over QUIC + libp2p gossipsub. The Lean protocol specification lives at
+Ethereum's consensus layer built around **post-quantum (XMSS / hash-sig)
+validator signatures**. Today's Lean clients run client-only devnets while
+the spec stabilises: no Engine API integration yet, no JWT, just consensus
+nodes peering over QUIC + libp2p gossipsub. Engine API support is on the
+roadmap, after which the same Lean clients are designed to pair with EL
+clients in the regular EL+CL devnet shape — which is exactly the motivation
+for landing them in this package alongside the existing EL pipeline. The
+Lean protocol specification lives at
 [ReamLabs/leanSpecs](https://github.com/ReamLabs/leanSpecs) and is
 co-developed by the teams behind
 [ream](https://github.com/ReamLabs/ream) (Rust),
@@ -28,16 +32,17 @@ new Lean client, see
 
 ## Why a parallel pipeline?
 
-Lean consensus differs from the existing EL/CL pipeline along every axis that
+Lean consensus today differs from the EL/CL pipeline along several axes that
 shaped the original `participant_network` design:
 
-| Concern                | EL/CL                          | Lean                          |
+| Concern                | EL/CL                          | Lean (today)                  |
 |------------------------|--------------------------------|-------------------------------|
 | Genesis tool           | `ethereum-genesis-generator`   | `eth-beacon-genesis leanchain` |
 | Validator signatures   | BLS                            | XMSS (hash-sig)               |
 | Validator key keystore | EIP-2335 JSON                  | SSZ `validator_N_*_key_*.ssz` |
-| Pairing                | 1 EL + 1 CL (+ optional VC)    | Standalone, no EL             |
-| RPC ports              | Engine RPC + JWT + REST + WS   | REST + Prometheus only        |
+| EL pairing             | 1 EL + 1 CL (+ optional VC)    | Client-only (no EL yet)       |
+| Engine API + JWT       | Required                       | Not implemented yet           |
+| RPC ports              | Engine RPC + JWT + REST + WS   | REST + Prometheus             |
 | P2P transport          | TCP + UDP discovery + libp2p   | QUIC-only (libp2p)            |
 | Block production       | EL builds payload, CL attests  | Single-stack: 4 s slots       |
 
@@ -48,6 +53,12 @@ the snooper, etc. A parallel pipeline keeps those code paths untouched and
 isolates Lean-specific concerns under `src/lean/` and
 `src/prelaunch_data_generator/lean_genesis/`.
 
+Once Lean clients ship Engine API support, the design intent is for the
+two pipelines to compose: a Lean participant declares its EL counterpart
+the same way today's CL clients do, JWT is shared, and the existing
+EL-side plumbing (image discovery, MEV-boost, snooper, dora) keeps
+working. Until then, the realistic devnet shape is Lean-only.
+
 The package still composes the two: Prometheus/Grafana discover Lean nodes
 through their service labels and metrics ports, and additional services that
 don't depend on EL state (e.g. dora's beacon explorer) can be pointed at Lean
@@ -57,9 +68,9 @@ nodes by URL.
 
 ## Quick start
 
-Lean consensus is fully standalone — no Engine API, no EL counterpart.
-A Lean network configuration therefore contains ONLY `lean_participants:`
-(set `participants: []` to skip the Eth1 EL/CL flow entirely):
+Today's Lean clients run client-only (no Engine API yet), so the realistic
+devnet shape is Lean-only — the args file contains `lean_participants:` and
+`participants: []` to skip the Eth1 EL/CL flow:
 
 ```yaml
 participants: []

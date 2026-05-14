@@ -11,8 +11,12 @@ Orchestrates the entire Lean pipeline:
      binary via `plan.exec`.
 
 This is intentionally independent of the EL/CL `participant_network` pipeline:
-Lean consensus has no Engine API, no JWT, no EL pairing. Operators opt in by
-populating `lean_participants:` in their args; the existing EL/CL flow runs
+Today's Lean devnets run client-only (no EL pairing yet), so this pipeline
+brings up a Lean-only mesh. Engine API support is on the roadmap for the
+Lean clients, after which the same `lean_participants:` entries will be
+able to pair with EL clients from `participants:` and share the existing
+package's Engine API / JWT plumbing. Operators opt in to Lean by populating
+`lean_participants:` in their args; the existing EL/CL flow runs
 unchanged either way.
 """
 

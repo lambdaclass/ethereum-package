@@ -90,12 +90,15 @@ def run(plan, args={}):
     network_params = args_with_right_defaults.network_params
 
     # Lean-only mode: when the operator configured `lean_participants:` but
-    # no Eth1 `participants:` entries, run ONLY the Lean pipeline. Lean
-    # consensus is fully standalone (no Engine API, no EL counterpart), so
-    # spinning up an EL+CL pair as a "placeholder" would just waste resources
-    # and confuse downstream services that try to call the Engine API.
-    # The lean_launcher returns the per-node contexts; downstream consumers
-    # (prometheus, grafana, dora) can be wired through in a follow-up.
+    # no Eth1 `participants:` entries, run ONLY the Lean pipeline. Today's
+    # Lean clients don't implement Engine API yet, so spinning up an EL+CL
+    # pair alongside would just waste resources and confuse downstream
+    # services that try to call into a non-existent Engine API. Once Lean
+    # clients ship Engine API support, the same `lean_participants:` entries
+    # will be able to pair with EL `participants:` and reuse the existing
+    # JWT + payload-attestation plumbing. The lean_launcher returns the
+    # per-node contexts; downstream consumers (prometheus, grafana, dora)
+    # can be wired through in a follow-up.
     if num_participants == 0 and args_with_right_defaults.lean_participants:
         plan.print(
             "Lean-only mode: {0} lean participant entries, 0 EL/CL participants".format(
@@ -361,9 +364,11 @@ def run(plan, args={}):
         all_xatu_sentry_contexts.append(participant.xatu_sentry_context)
 
     # Launch Lean Ethereum consensus participants alongside the EL/CL network.
-    # Lean is a standalone consensus stack (no EL pairing, no Engine API, no
-    # JWT, post-quantum signatures); it runs through its own pipeline and
-    # produces independent file artifacts + services. The list is empty
+    # Today's Lean clients run client-only (no Engine API yet) and use
+    # post-quantum signatures; the pipeline brings them up against their
+    # own genesis + libp2p QUIC mesh. Once Engine API lands on the Lean
+    # side, these participants will be able to pair with `participants:`
+    # EL clients and reuse the existing JWT plumbing. The list is empty
     # unless the user populated `lean_participants:` in their args.
     # See docs/lean-consensus.md for the architecture.
     all_lean_contexts = lean_launcher.launch(
