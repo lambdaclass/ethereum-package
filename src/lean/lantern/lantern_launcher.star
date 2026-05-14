@@ -14,7 +14,7 @@ lean_context = import_module("../lean_context.star")
 # directly. lean-quickstart calls it as `lantern_cli` for the binary path
 # but the entrypoint script forwards to the same underlying binary; the
 # in-container path is /usr/local/bin/lantern_cli.
-ENTRYPOINT = "/usr/local/bin/lantern_cli"
+ENTRYPOINT = "/opt/lantern/bin/lantern"
 GENESIS_MOUNT = constants.LEAN_GENESIS_MOUNTPOINT_ON_CLIENTS
 HASH_SIG_MOUNT = GENESIS_MOUNT + "/hash-sig-keys"
 DATA_DIR = "/data"

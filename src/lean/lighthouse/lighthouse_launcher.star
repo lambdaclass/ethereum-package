@@ -3,18 +3,13 @@ lighthouse (lean) launcher.
 
 Translates the Lean pipeline's per-node record into the Lean lighthouse
 fork's CLI surface from `client-cmds/lighthouse-cmd.sh` in
-blockblaz/lean-quickstart:
+blockblaz/lean-quickstart, restricted to the flags the published
+`hopinheimer/lighthouse:latest` image actually accepts.
 
-    lighthouse lean_node \
-      --datadir <dir> \
-      --config <config.yaml> \
-      --validators <validator-config.yaml> \
-      --nodes <nodes.yaml> \
-      --node-id <name> --private-key <key> \
-      --genesis-json <genesis.json> \
-      --socket-port <quic> \
-      --metrics --metrics-address 0.0.0.0 --metrics-port <m> \
-      --api-port <api>
+NOTE: the image's `lighthouse lean_node` subcommand does NOT support
+`--api-port` or `--is-aggregator`. Lighthouse will run as a non-aggregator
+peer with only the metrics endpoint exposed; setting `is_aggregator: true`
+in lean_participants is silently ignored for this client.
 """
 
 constants = import_module("../../package_io/constants.star")
@@ -88,9 +83,9 @@ def start(plan, node, service, genesis_artifact, hash_sig_artifact):
 
     cmd_parts = [
         ENTRYPOINT,
-        "lean_node",
         "--datadir",
         DATA_DIR,
+        "lean_node",
         "--config",
         "{0}/config.yaml".format(GENESIS_MOUNT),
         "--validators",
@@ -110,11 +105,7 @@ def start(plan, node, service, genesis_artifact, hash_sig_artifact):
         "0.0.0.0",
         "--metrics-port",
         str(constants.LEAN_METRICS_PORT_NUM),
-        "--api-port",
-        str(constants.LEAN_API_PORT_NUM),
     ]
-    if node["is_aggregator"]:
-        cmd_parts.append("--is-aggregator")
     for extra in node["extra_params"]:
         cmd_parts.append(extra)
 
