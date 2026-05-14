@@ -22,10 +22,12 @@ CL_TYPE = struct(
     caplin="caplin",
 )
 
-# Lean Ethereum consensus clients. These are standalone consensus clients
-# for the Lean Ethereum specification (post-quantum signatures, no EL pairing,
-# no Engine API). They run via the separate Lean pipeline in src/lean/ and
-# do NOT belong in `participants:`; use `lean_participants:` instead.
+# Lean Ethereum consensus clients (post-quantum signatures, leanchain
+# genesis, libp2p QUIC). Today's Lean clients run client-only because
+# Engine API isn't implemented on the Lean side yet; once it lands these
+# will be able to pair with EL `participants:`. Until then, Lean
+# participants live in `lean_participants:` and run via the separate
+# pipeline in src/lean/.
 LEAN_TYPE = struct(
     ethlambda="ethlambda",
     ream="ream",

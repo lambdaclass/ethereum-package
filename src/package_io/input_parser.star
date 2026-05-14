@@ -2605,10 +2605,12 @@ def get_devnet_modified_images(network_name, default_images):
 # ---------------------------------------------------------------------------
 # Lean Ethereum parsing
 # ---------------------------------------------------------------------------
-# Lean consensus is a standalone, post-quantum-signature consensus stack. It
-# does not pair with an EL, has no Engine API / JWT, and uses its own
-# genesis pipeline (PK's eth-beacon-genesis leanchain). Lean participants
-# therefore live in a separate `lean_participants:` list and run through
+# Lean is a post-quantum-signature consensus stack with its own genesis
+# pipeline (PK's eth-beacon-genesis leanchain). Today's Lean clients are
+# client-only - Engine API isn't implemented yet, so for now they run
+# without an EL counterpart; once Engine API lands they're designed to pair
+# with EL clients the same way today's CL clients do. Until then, Lean
+# participants live in a separate `lean_participants:` list and run through
 # `src/lean/lean_launcher.star`.
 
 
