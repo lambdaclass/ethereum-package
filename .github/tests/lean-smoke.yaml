@@ -1,0 +1,18 @@
+# Smallest reproducible Lean devnet: one aggregator + one peer, both
+# ethlambda. Comes up in ~3 min including hash-sig keygen. Use this as
+# a sanity check before reaching for `lean-devnet4.yaml`.
+participants: []
+lean_participants:
+  - lean_type: ethlambda
+    count: 1
+    validator_count: 1
+    is_aggregator: true
+  - lean_type: ethlambda
+    count: 1
+    validator_count: 1
+    is_aggregator: false
+lean_network_params:
+  genesis_delay: 60
+  active_epoch: 18
+  attestation_committee_count: 1
+additional_services: []

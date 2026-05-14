@@ -75,6 +75,30 @@ Once CL genesis data and keys have been created, the CL client nodes are started
 
 There are only two major difference between CL client and EL client launchers. First, the `cl_client_launcher.launch` method also consumes an `el_context`, because each CL client is connected in a 1:1 relationship with an EL client. Second, because CL clients have keys, the keystore files are passed in to the `launch` function as well.
 
+## Lean Ethereum participants
+
+Lean Ethereum consensus runs as a parallel top-level pipeline alongside the
+EL/CL participant network. Today's Lean clients are client-only — Engine
+API isn't implemented yet — so a Lean network configuration uses its own
+`lean_participants:` block and skips the Eth1 EL/CL flow by setting
+`participants: []`. When Engine API ships on the Lean side, the same
+participants are designed to pair with EL clients in the regular EL+CL
+shape.
+
+The pipeline lives under [`src/lean/`](../src/lean) and reuses the
+prelaunch-data-generator pattern for genesis under
+[`src/prelaunch_data_generator/lean_genesis/`](../src/prelaunch_data_generator/lean_genesis).
+Per-client launchers translate the Lean Kurtosis record into each
+client's CLI (mirroring the contract documented inline in each
+`<client>_launcher.star`). Genesis uses
+[`eth-beacon-genesis leanchain`](https://github.com/ethpandaops/eth-beacon-genesis)
+for the chain bundle and
+[`blockblaz/hash-sig-cli`](https://hub.docker.com/r/blockblaz/hash-sig-cli)
+for XMSS validator keypairs. Metrics ride a vendored Prometheus + Grafana
+stack with the upstream Lean client dashboard pre-loaded.
+
+Canonical args example: [`.github/tests/lean-devnet4.yaml`](../.github/tests/lean-devnet4.yaml).
+
 ## Auxiliary Services
 
 After the Ethereum network is up and running, this package starts several auxiliary containers to make it easier to work with the Ethereum network. At time of writing, these are:
