@@ -162,6 +162,10 @@ def get_config(
         "--log.level={0}".format(VERBOSITY_LEVELS[global_log_level]),
         "--http.port={0}".format(RPC_PORT_NUM),
         "--http.addr=0.0.0.0",
+        # Enable the `admin` namespace so el_admin_node_info.get_enode_enr_for_node()
+        # can read the ENR/enode via `admin_nodeInfo`. ethrex defaults to
+        # `eth,net,web3` only; without `admin` the poll hangs forever.
+        "--http.api=admin,eth,net,web3",
         "--authrpc.port={0}".format(ENGINE_RPC_PORT_NUM),
         "--authrpc.jwtsecret=" + constants.JWT_MOUNT_PATH_ON_CONTAINER,
         "--authrpc.addr=0.0.0.0",
