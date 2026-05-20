@@ -128,7 +128,7 @@ def start(plan, node, service, genesis_artifact, hash_sig_artifact):
     if node["log_level"] != "":
         rust_log = "RUST_LOG='{0}' ".format(node["log_level"])
 
-    nohup_cmd = "nohup {0}{1} >> {2} 2>&1 &".format(
+    nohup_cmd = "setsid -f sh -c \"exec {0}{1}\" < /dev/null >> {2} 2>&1".format(
         rust_log,
         " ".join(cmd_parts),
         log_file,

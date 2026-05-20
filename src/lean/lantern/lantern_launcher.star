@@ -112,7 +112,7 @@ def start(plan, node, service, genesis_artifact, hash_sig_artifact):
     for extra in node["extra_params"]:
         cmd_parts.append(extra)
 
-    nohup_cmd = "nohup {0} >> {1} 2>&1 &".format(
+    nohup_cmd = "setsid -f sh -c \"exec {0}\" < /dev/null >> {1} 2>&1".format(
         " ".join(cmd_parts),
         log_file,
     )
