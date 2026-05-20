@@ -100,10 +100,13 @@ def launch(plan, lean_participants, lean_network_params, jwt_file=None):
             # `node_name` follows lean-quickstart's `<client>_<index>`
             # convention (passed as --node-id and used in validator-config.yaml).
             # Kurtosis service names, however, must match RFC 1035 — lowercase
-            # letters/digits/hyphens only — so we translate the underscore to
-            # a hyphen for the Kurtosis-facing name.
+            # letters/digits/hyphens only — so we translate any underscore in
+            # the lean_type (e.g. `lean_grandine`) to a hyphen for the
+            # Kurtosis-facing service name.
             node_name = "{0}_{1}".format(lean_type, idx)
-            service_name = "lean-{0}-{1}".format(lean_type, idx)
+            service_name = "lean-{0}-{1}".format(
+                lean_type.replace("_", "-"), idx
+            )
             expanded.append(
                 {
                     "node_name": node_name,
