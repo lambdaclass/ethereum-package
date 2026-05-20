@@ -8,9 +8,9 @@
 # The ethlambda image is built locally from lambdaclass/ethlambda#367 —
 # see the PR description for the build command.
 #
-# Dora is added as an additional service for the EL-side beacon-explorer
-# UI; Lean cl_types don't expose an Eth1 beacon API so dora renders the
-# EL side only.
+# Dora intentionally omitted — it requires at least one Eth1 beacon
+# endpoint to start, and Lean cl_types don't expose one yet. Re-enable
+# once ethlambda ships Beacon API compatibility stubs.
 participants:
   # First ethrex+ethlambda pair is the network aggregator.
   - el_type: ethrex
@@ -62,5 +62,4 @@ participants:
     validator_count: 1
     is_aggregator: false
 
-additional_services:
-  - dora
+additional_services: []
