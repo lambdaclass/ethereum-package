@@ -12,9 +12,8 @@ Layout:
   * One Grafana service named "lean-grafana" provisioning the Prometheus
     datasource and the upstream Lean client dashboard.
 
-The whole thing is enabled by default when there are lean_participants;
-add `additional_services: [grafana, prometheus]` to network_params.yaml
-or set `lean_network_params.metrics_enabled: false` to skip it.
+The whole thing is enabled by default whenever any participant has a
+Lean cl_type; set `lean_network_params.metrics_enabled: false` to skip it.
 """
 
 constants = import_module("../../package_io/constants.star")

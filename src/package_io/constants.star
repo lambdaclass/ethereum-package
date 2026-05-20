@@ -20,22 +20,55 @@ CL_TYPE = struct(
     grandine="grandine",
     consensoor="consensoor",
     caplin="caplin",
+    # Lean Ethereum CL clients. These live in `participants:` alongside the
+    # standard CL types but are launched by the Lean pipeline under
+    # `src/lean/` rather than `src/cl/`. The `cl_launcher.star` dispatcher
+    # skips Lean cl_types; the Lean launcher is then invoked from main.star
+    # with the participant's el_context (Some when paired with an EL, None
+    # when el_type is `none`).
+    #
+    # ethlambda is the only Lean client with Engine API today
+    # (lambdaclass/ethlambda#367). The rest run with `el_type: none`.
+    # `lean_grandine`/`lean_lighthouse` are prefixed to disambiguate from
+    # the standard Eth1 CLs above which share those repository names.
+    ethlambda="ethlambda",
+    ream="ream",
+    zeam="zeam",
+    qlean="qlean",
+    lantern="lantern",
+    gean="gean",
+    lean_grandine="lean_grandine",
+    lean_lighthouse="lean_lighthouse",
+)
+
+# Set of CL types that route to the Lean pipeline. The cl_launcher
+# dispatcher skips these (no eth-side beacon launch); main.star then
+# builds Lean records from each such participant and hands them to
+# lean_launcher.launch with the paired el_context (None for unpaired).
+LEAN_CL_TYPES = (
+    CL_TYPE.ethlambda,
+    CL_TYPE.ream,
+    CL_TYPE.zeam,
+    CL_TYPE.qlean,
+    CL_TYPE.lantern,
+    CL_TYPE.gean,
+    CL_TYPE.lean_grandine,
+    CL_TYPE.lean_lighthouse,
 )
 
 # Lean Ethereum consensus clients (post-quantum signatures, leanchain
-# genesis, libp2p QUIC). Today's Lean clients run client-only because
-# Engine API isn't implemented on the Lean side yet; once it lands these
-# will be able to pair with EL `participants:`. Until then, Lean
-# participants live in `lean_participants:` and run via the separate
-# pipeline in src/lean/.
+# genesis, libp2p QUIC). Today only ethlambda implements Engine API on
+# the Lean side, so the other clients run with `el_type: none`. The
+# `grandine`/`lighthouse` values are prefixed with `lean_` to avoid
+# colliding with the Eth1 CL types in CL_TYPE that share those names.
 LEAN_TYPE = struct(
     ethlambda="ethlambda",
     ream="ream",
     zeam="zeam",
     qlean="qlean",
     lantern="lantern",
-    grandine="grandine",
-    lighthouse="lighthouse",
+    grandine="lean_grandine",
+    lighthouse="lean_lighthouse",
     gean="gean",
     peam="peam",
     nlean="nlean",

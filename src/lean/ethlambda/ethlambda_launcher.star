@@ -69,13 +69,28 @@ def initialize(plan, node, p2p_keys_artifact, hash_sig_artifact):
     return plan.add_service(node["service_name"], ServiceConfig(**cfg_kwargs))
 
 
-def start(plan, node, service, genesis_artifact, hash_sig_artifact):
+def start(
+    plan,
+    node,
+    service,
+    genesis_artifact,
+    hash_sig_artifact,
+    el_context=None,
+    jwt_file=None,
+    el_genesis_block_hash=None,
+):
     """Phase 3: stage genesis text files into the running container and
     launch the ethlambda binary as a backgrounded process.
 
     `hash_sig_artifact` is unused here because it was already mounted in
     `initialize()` — we keep the parameter for shape parity with the other
     Lean clients.
+
+    When `el_context`, `jwt_file`, and `el_genesis_block_hash` are all set,
+    ethlambda is launched with Engine API pairing
+    (`--execution-endpoint`, `--execution-jwt-secret`,
+    `--execution-genesis-block-hash`). Otherwise it boots Lean-only.
+    See lambdaclass/ethlambda#367 for the Engine API plumbing.
     """
     service_name = service.name
     log_file = lean_shared.lean_log_file_path(service_name)
@@ -148,6 +163,48 @@ def start(plan, node, service, genesis_artifact, hash_sig_artifact):
     ]
     if node["is_aggregator"]:
         cmd_parts.append("--is-aggregator")
+
+    # Engine API pairing: present only when this node was synthesized from
+    # a `participants:` entry with a paired EL (lean_launcher fills the
+    # three values in tandem). We stage the JWT secret into the running
+    # container via plan.exec (same trick as the genesis files) since
+    # Kurtosis doesn't let us add a new files mount to an already-running
+    # service.
+    if el_context != None and jwt_file != None and el_genesis_block_hash != None:
+        jwt_path = "{0}/jwtsecret".format(GENESIS_MOUNT)
+        jwt_read = plan.run_sh(
+            run="cat /src/jwtsecret",
+            files={"/src": jwt_file},
+            description="Reading JWT secret for {0}".format(node["service_name"]),
+        )
+        plan.exec(
+            service_name=node["service_name"],
+            recipe=ExecRecipe(
+                command=[
+                    "/bin/sh",
+                    "-c",
+                    "cat > {0} <<'ETHLAMBDA_JWT_EOF'\n{1}\nETHLAMBDA_JWT_EOF".format(
+                        jwt_path,
+                        jwt_read.output,
+                    ),
+                ],
+            ),
+            description="Staging JWT into {0}".format(node["service_name"]),
+        )
+        engine_endpoint = "http://{0}:{1}".format(
+            el_context.ip_addr, el_context.engine_rpc_port_num
+        )
+        cmd_parts.extend(
+            [
+                "--execution-endpoint",
+                engine_endpoint,
+                "--execution-jwt-secret",
+                jwt_path,
+                "--execution-genesis-block-hash",
+                el_genesis_block_hash,
+            ]
+        )
+
     for extra in node["extra_params"]:
         cmd_parts.append(extra)
 

@@ -9,7 +9,7 @@ blockblaz/lean-quickstart, restricted to the flags the published
 NOTE: the image's `lighthouse lean_node` subcommand does NOT support
 `--api-port` or `--is-aggregator`. Lighthouse will run as a non-aggregator
 peer with only the metrics endpoint exposed; setting `is_aggregator: true`
-in lean_participants is silently ignored for this client.
+on this participant is silently ignored for this client.
 """
 
 constants = import_module("../../package_io/constants.star")

@@ -246,7 +246,7 @@ def generate_hash_sig_keys(plan, lean_network_params, total_validators):
     if total_validators < 1:
         fail(
             "Lean genesis requires at least one validator across all "
-            + "lean_participants (got 0).",
+            + "Lean participants (got 0).",
         )
     _, hash_sig_image = _resolve_images(lean_network_params)
     return _generate_hash_sig_keys(
@@ -488,7 +488,7 @@ def generate(
     if total_validators < 1:
         fail(
             "Lean genesis requires at least one validator across all "
-            + "lean_participants (got 0).",
+            + "Lean participants (got 0).",
         )
 
     genesis_image, _ = _resolve_images(lean_network_params)

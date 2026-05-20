@@ -1,0 +1,23 @@
+# Two ethrex + ethlambda pairs. One aggregator, one not.
+#
+# - Two `participants:` entries, each pairs an ethrex EL with an ethlambda CL.
+# - Lean genesis pipeline runs once across both participants (single XMSS keyset,
+#   shared validator-config) — see src/lean/lean_launcher.star.
+# - Each ethlambda gets its own EL endpoint, JWT, and EL genesis block hash.
+# - Lean libp2p QUIC mesh peers ethlambda_0 <-> ethlambda_1 directly via the
+#   nodes.yaml the genesis pipeline emits.
+participants:
+  - el_type: ethrex
+    cl_type: ethlambda
+    cl_image: ghcr.io/lambdaclass/ethlambda:engine-api-integration
+    count: 1
+    validator_count: 1
+    is_aggregator: true
+  - el_type: ethrex
+    cl_type: ethlambda
+    cl_image: ghcr.io/lambdaclass/ethlambda:engine-api-integration
+    count: 1
+    validator_count: 1
+    is_aggregator: false
+
+additional_services: []

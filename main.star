@@ -89,39 +89,6 @@ def run(plan, args={}):
     num_participants = len(args_with_right_defaults.participants)
     network_params = args_with_right_defaults.network_params
 
-    # Lean-only mode: when the operator configured `lean_participants:` but
-    # no Eth1 `participants:` entries, run ONLY the Lean pipeline. Today's
-    # Lean clients don't implement Engine API yet, so spinning up an EL+CL
-    # pair alongside would just waste resources and confuse downstream
-    # services that try to call into a non-existent Engine API. Once Lean
-    # clients ship Engine API support, the same `lean_participants:` entries
-    # will be able to pair with EL `participants:` and reuse the existing
-    # JWT + payload-attestation plumbing. The lean_launcher returns the
-    # per-node contexts; downstream consumers (prometheus, grafana, dora)
-    # can be wired through in a follow-up.
-    if num_participants == 0 and args_with_right_defaults.lean_participants:
-        plan.print(
-            "Lean-only mode: {0} lean participant entries, 0 EL/CL participants".format(
-                len(args_with_right_defaults.lean_participants)
-            )
-        )
-        lean_contexts = lean_launcher.launch(
-            plan,
-            args_with_right_defaults.lean_participants,
-            args_with_right_defaults.lean_network_params,
-        )
-        return struct(
-            grafana_info=None,
-            blockscout_sc_verif_url=None,
-            all_participants=[],
-            lean_participants=lean_contexts,
-            pre_funded_accounts={},
-            network_params=network_params,
-            network_id=network_params.network_id,
-            final_genesis_timestamp=None,
-            genesis_validators_root=None,
-        )
-
     # Detect the backend type early - needed for binary injection validation
     detected_backend = plan.get_cluster_type()
 
@@ -363,18 +330,57 @@ def run(plan, args={}):
         )
         all_xatu_sentry_contexts.append(participant.xatu_sentry_context)
 
-    # Launch Lean Ethereum consensus participants alongside the EL/CL network.
-    # Today's Lean clients run client-only (no Engine API yet) and use
-    # post-quantum signatures; the pipeline brings them up against their
-    # own genesis + libp2p QUIC mesh. Once Engine API lands on the Lean
-    # side, these participants will be able to pair with `participants:`
-    # EL clients and reuse the existing JWT plumbing. The list is empty
-    # unless the user populated `lean_participants:` in their args.
-    # See docs/lean-consensus.md for the architecture.
+    # Launch Lean Ethereum consensus participants. Lean clients are
+    # `participants:` entries whose `cl_type` is in
+    # constants.LEAN_CL_TYPES. The cl_launcher dispatcher already
+    # skipped them (None cl_context); here we build equivalent Lean
+    # records from each participant and hand them — together with the
+    # paired el_context (None when el_type is `none`) and the network
+    # JWT — to src/lean/lean_launcher.launch. ethlambda is the only
+    # Lean client that wires Engine API today (lambdaclass/ethlambda#367);
+    # the others run with `el_type: none`.
+    lean_records = []
+    for index, participant in enumerate(args_with_right_defaults.participants):
+        if participant.cl_type not in constants.LEAN_CL_TYPES:
+            continue
+        paired_el_context = (
+            all_el_contexts[index] if index < len(all_el_contexts) else None
+        )
+        lean_records.append(
+            {
+                "lean_type": participant.cl_type,
+                "lean_image": participant.cl_image,
+                "count": participant.count,
+                "validator_count": participant.validator_count
+                or args_with_right_defaults.lean_network_params[
+                    "num_validator_keys_per_node"
+                ],
+                "is_aggregator": participant.is_aggregator,
+                "lean_extra_params": participant.cl_extra_params,
+                "lean_extra_env_vars": participant.cl_extra_env_vars,
+                "lean_extra_labels": participant.cl_extra_labels,
+                "lean_log_level": participant.cl_log_level,
+                "lean_min_cpu": participant.cl_min_cpu,
+                "lean_max_cpu": participant.cl_max_cpu,
+                "lean_min_mem": participant.cl_min_mem,
+                "lean_max_mem": participant.cl_max_mem,
+                "node_selectors": participant.node_selectors,
+                "tolerations": participant.tolerations,
+                "prometheus_config": {
+                    "scrape_interval": participant.prometheus_config.scrape_interval,
+                    "labels": participant.prometheus_config.labels or {},
+                },
+                # Underscore-prefixed fields are internal hand-offs to
+                # the Lean launcher.
+                "_el_context": paired_el_context,
+            }
+        )
+
     all_lean_contexts = lean_launcher.launch(
         plan,
-        args_with_right_defaults.lean_participants,
+        lean_records,
         args_with_right_defaults.lean_network_params,
+        jwt_file=jwt_file,
     )
 
     # Generate validator ranges

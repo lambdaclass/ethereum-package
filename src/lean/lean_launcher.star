@@ -10,14 +10,11 @@ Orchestrates the entire Lean pipeline:
   4. Mount the genesis bundle into each placeholder and start the real client
      binary via `plan.exec`.
 
-This is intentionally independent of the EL/CL `participant_network` pipeline:
-Today's Lean devnets run client-only (no EL pairing yet), so this pipeline
-brings up a Lean-only mesh. Engine API support is on the roadmap for the
-Lean clients, after which the same `lean_participants:` entries will be
-able to pair with EL clients from `participants:` and share the existing
-package's Engine API / JWT plumbing. Operators opt in to Lean by populating
-`lean_participants:` in their args; the existing EL/CL flow runs
-unchanged either way.
+Invoked from main.star with a list of Lean records derived from
+`participants:` entries whose `cl_type` is in constants.LEAN_CL_TYPES.
+Each record carries the paired `el_context` (None when `el_type: none`)
+so the launcher can wire Engine API for clients that implement it (today
+just ethlambda — lambdaclass/ethlambda#367).
 """
 
 constants = import_module("../package_io/constants.star")
@@ -77,11 +74,15 @@ def _launcher_for(lean_type):
     )
 
 
-def launch(plan, lean_participants, lean_network_params):
+def launch(plan, lean_participants, lean_network_params, jwt_file=None):
     """Top-level entrypoint for the Lean pipeline.
 
     Returns the list of `lean_context` structs (one per running node),
     suitable for handing to Prometheus / Grafana / dora.
+
+    `jwt_file` is the JWT artifact shared with paired ELs. It's only
+    consulted for nodes that carry an `_el_context` (synthesized by
+    main.star from `participants:` entries with a Lean cl_type).
     """
     if not lean_participants:
         return []
@@ -131,6 +132,10 @@ def launch(plan, lean_participants, lean_network_params):
                             "labels": {},
                         },
                     ),
+                    # Optional Engine API pairing — populated by main.star
+                    # when the participant has a non-`none` el_type.
+                    # None for participants with `el_type: none` (Lean-only).
+                    "_el_context": participant.get("_el_context"),
                 }
             )
 
@@ -197,18 +202,65 @@ def launch(plan, lean_participants, lean_network_params):
         hash_sig_artifact,
     )
 
+    # Phase 2.5: for nodes with a paired EL, query the EL's genesis
+    # block hash. ethlambda's `--execution-genesis-block-hash` flag seeds
+    # `state.latest_execution_payload_header.block_hash` so the very first
+    # `engine_forkchoiceUpdatedV3` carries a head the EL recognizes —
+    # without it the EL replies SYNCING forever. The hash is the same for
+    # every node sharing the same EL chain, but we still query per-EL
+    # because each Lean node points at a different EL service.
+    for node in expanded:
+        el_context = node["_el_context"]
+        if el_context == None:
+            node["_el_genesis_block_hash"] = None
+            continue
+        # `eth_getBlockByNumber 0x0` returns the genesis header; `.hash`
+        # is the 0x-prefixed 32-byte hash ethlambda expects. We strip
+        # quotes/newlines for clean substitution into the CLI flag.
+        rpc_url = "http://{0}:{1}".format(
+            el_context.ip_addr, el_context.rpc_port_num
+        )
+        query = plan.run_sh(
+            run='set -eu; out=$(curl -sf -X POST -H "Content-Type: application/json" '
+            + '--data \'{"jsonrpc":"2.0","method":"eth_getBlockByNumber","params":["0x0",false],"id":1}\' '
+            + '{0}); echo "$out" | sed -E \'s/.*"hash":"(0x[0-9a-fA-F]+)".*/\\1/\''.format(
+                rpc_url
+            ),
+            description="Querying EL genesis block hash for {0}".format(
+                node["node_name"]
+            ),
+            wait="5m",
+        )
+        node["_el_genesis_block_hash"] = query.output
+
     # Phase 3: hand off to each per-client launcher to mount the genesis bundle
-    # and start the real binary.
+    # and start the real binary. ethlambda accepts optional EL params; the
+    # other Lean launchers ignore them.
     contexts = []
     for node, service in services:
         launcher = _launcher_for(node["lean_type"])
-        ctx = launcher.start(
-            plan,
-            node,
-            service,
-            genesis.genesis_artifact,
-            genesis.hash_sig_artifact,
-        )
+        if (
+            node["lean_type"] == constants.LEAN_TYPE.ethlambda
+            and node["_el_context"] != None
+        ):
+            ctx = launcher.start(
+                plan,
+                node,
+                service,
+                genesis.genesis_artifact,
+                genesis.hash_sig_artifact,
+                el_context=node["_el_context"],
+                jwt_file=jwt_file,
+                el_genesis_block_hash=node["_el_genesis_block_hash"],
+            )
+        else:
+            ctx = launcher.start(
+                plan,
+                node,
+                service,
+                genesis.genesis_artifact,
+                genesis.hash_sig_artifact,
+            )
         contexts.append(ctx)
 
     plan.print(

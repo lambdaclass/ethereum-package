@@ -26,6 +26,17 @@ DEFAULT_CL_IMAGES = {
     "grandine": "sifrai/grandine:stable",
     "consensoor": "ethpandaops/consensoor:main",
     "caplin": "ethpandaops/caplin:main",
+    # Lean CL clients. Routed through the Lean pipeline (src/lean/), not
+    # the standard CL launchers. Operators pin a specific devnet image
+    # per-participant via `cl_image:` in their args file.
+    "ethlambda": "ghcr.io/lambdaclass/ethlambda:latest",
+    "ream": "ghcr.io/reamlabs/ream:latest",
+    "zeam": "blockblaz/zeam:latest",
+    "qlean": "qdrvm/qlean-mini:latest",
+    "lantern": "piertwo/lantern:latest",
+    "gean": "ghcr.io/geanlabs/gean:latest",
+    "lean_grandine": "sifrai/lean:latest",
+    "lean_lighthouse": "hopinheimer/lighthouse:latest",
 }
 
 DEFAULT_CL_IMAGES_MINIMAL = {
@@ -37,6 +48,14 @@ DEFAULT_CL_IMAGES_MINIMAL = {
     "grandine": "ethpandaops/grandine:develop-minimal",
     "consensoor": "ethpandaops/consensoor:main",
     "caplin": "ethpandaops/caplin:main",
+    "ethlambda": "ghcr.io/lambdaclass/ethlambda:latest",
+    "ream": "ghcr.io/reamlabs/ream:latest",
+    "zeam": "blockblaz/zeam:latest",
+    "qlean": "qdrvm/qlean-mini:latest",
+    "lantern": "piertwo/lantern:latest",
+    "gean": "ghcr.io/geanlabs/gean:latest",
+    "lean_grandine": "sifrai/lean:latest",
+    "lean_lighthouse": "hopinheimer/lighthouse:latest",
 }
 
 DEFAULT_VC_IMAGES = {
@@ -65,24 +84,6 @@ DEFAULT_REMOTE_SIGNER_IMAGES = {
     "web3signer": "consensys/web3signer:latest",
 }
 
-# Default Lean Ethereum client images. Each entry points at the client's
-# generic `:latest` tag so the defaults don't rot when a new devnet
-# generation ships. Operators pin a specific devnet by setting
-# `lean_image:` per-participant in their args file (see
-# `docs/lean-consensus.md` for a worked devnet4 example).
-DEFAULT_LEAN_IMAGES = {
-    constants.LEAN_TYPE.ethlambda: "ghcr.io/lambdaclass/ethlambda:latest",
-    constants.LEAN_TYPE.ream: "ghcr.io/reamlabs/ream:latest",
-    constants.LEAN_TYPE.zeam: "blockblaz/zeam:latest",
-    constants.LEAN_TYPE.qlean: "qdrvm/qlean-mini:latest",
-    constants.LEAN_TYPE.lantern: "piertwo/lantern:latest",
-    constants.LEAN_TYPE.grandine: "sifrai/lean:latest",
-    constants.LEAN_TYPE.lighthouse: "hopinheimer/lighthouse:latest",
-    constants.LEAN_TYPE.gean: "ghcr.io/geanlabs/gean:latest",
-    constants.LEAN_TYPE.peam: "",  # No published image yet
-    constants.LEAN_TYPE.nlean: "",  # No published image yet
-}
-
 # MEV Params
 MEV_BOOST_PORT = 18550
 
@@ -91,7 +92,6 @@ DEFAULT_ADDITIONAL_SERVICES = []
 ATTR_TO_BE_SKIPPED_AT_ROOT = (
     "network_params",
     "participants",
-    "lean_participants",
     "lean_network_params",
     "mev_params",
     "blockscout_params",
@@ -157,14 +157,11 @@ def input_parser(plan, input_args):
     result["zkboost_params"] = get_default_zkboost_params()
     result["buildoor_params"] = get_default_buildoor_params()
 
-    # Lean Ethereum: defaults are empty; users opt in by providing
-    # `lean_participants:` in their args. Parsed below if present.
-    result["lean_participants"] = []
+    # Lean Ethereum: knobs (active_epoch, attestation_committee_count,
+    # num_validator_keys_per_node, metrics_enabled, ...) live in their
+    # own params block since they don't map cleanly to Eth1 fields. Only
+    # consulted when at least one participant has a Lean cl_type.
     result["lean_network_params"] = default_lean_network_params()
-    if "lean_participants" in input_args and input_args["lean_participants"]:
-        result["lean_participants"] = parse_lean_participants(
-            input_args["lean_participants"]
-        )
     if "lean_network_params" in input_args:
         for k, v in input_args["lean_network_params"].items():
             result["lean_network_params"][k] = v
@@ -475,12 +472,18 @@ def input_parser(plan, input_args):
         )
 
     # Fulu / PeerDAS validation only applies to the Eth1 EL/CL participant
-    # network. Lean-only deployments (participants: [], lean_participants: [...])
-    # have no CL clients and therefore no PeerDAS surface, so we skip the
-    # validation when participants is empty.
+    # network. Skip it when every participant has a Lean cl_type — Lean
+    # clients don't speak PeerDAS.
+    has_any_eth1_cl = any(
+        [
+            p["cl_type"] not in constants.LEAN_CL_TYPES
+            for p in result["participants"]
+        ]
+    )
     if (
         result["network_params"]["fulu_fork_epoch"] != constants.FAR_FUTURE_EPOCH
         and len(result["participants"]) > 0
+        and has_any_eth1_cl
     ):
         has_supernodes = False
         has_node_with_128_plus_validators = False
@@ -636,9 +639,15 @@ def input_parser(plan, input_args):
 
     # The "first participant must have an EL" check only applies when there
     # actually IS at least one Eth1 participant; lean-only deployments
-    # (participants: []) skip the EL/CL pipeline entirely.
+    # (participants: []) skip the EL/CL pipeline entirely. We also skip it
+    # when every participant has a Lean cl_type — Lean clients use their
+    # own libp2p QUIC mesh and don't need an Eth1 bootnode.
+    all_lean = len(result["participants"]) > 0 and all(
+        [p["cl_type"] in constants.LEAN_CL_TYPES for p in result["participants"]]
+    )
     if (
         len(result["participants"]) > 0
+        and not all_lean
         and "bootnodoor" not in result["additional_services"]
         and result["participants"][0]["el_type"] == constants.EL_TYPE.none
     ):
@@ -758,6 +767,7 @@ def input_parser(plan, input_args):
                 vc_beacon_node_indices=participant["vc_beacon_node_indices"],
                 checkpoint_sync_enabled=participant["checkpoint_sync_enabled"],
                 skip_start=participant["skip_start"],
+                is_aggregator=participant["is_aggregator"],
             )
             for participant in result["participants"]
         ],
@@ -1142,10 +1152,9 @@ def input_parser(plan, input_args):
             builder_api=result["buildoor_params"]["builder_api"],
             epbs_builder=result["buildoor_params"]["epbs_builder"],
         ),
-        # Lean Ethereum. Stored as plain lists/dicts (not nested structs)
+        # Lean Ethereum knobs. Stored as a plain dict (not a nested struct)
         # because the Lean per-client launchers reach for fields by string
         # key — see src/lean/lean_launcher.star.
-        lean_participants=result["lean_participants"],
         lean_network_params=result["lean_network_params"],
     )
 
@@ -1877,6 +1886,9 @@ def default_participant():
         "vc_beacon_node_indices": None,
         "checkpoint_sync_enabled": None,
         "skip_start": False,
+        # Lean CL knob — only consulted when cl_type is in constants.LEAN_CL_TYPES.
+        # Non-Lean participants ignore it.
+        "is_aggregator": False,
     }
 
 
@@ -2606,33 +2618,13 @@ def get_devnet_modified_images(network_name, default_images):
 # Lean Ethereum parsing
 # ---------------------------------------------------------------------------
 # Lean is a post-quantum-signature consensus stack with its own genesis
-# pipeline (PK's eth-beacon-genesis leanchain). Today's Lean clients are
-# client-only - Engine API isn't implemented yet, so for now they run
-# without an EL counterpart; once Engine API lands they're designed to pair
-# with EL clients the same way today's CL clients do. Until then, Lean
-# participants live in a separate `lean_participants:` list and run through
-# `src/lean/lean_launcher.star`.
-
-
-def default_lean_participant():
-    return {
-        "lean_type": constants.LEAN_TYPE.ethlambda,
-        "lean_image": "",
-        "lean_log_level": "",
-        "lean_extra_params": [],
-        "lean_extra_env_vars": {},
-        "lean_extra_labels": {},
-        "lean_min_cpu": 0,
-        "lean_max_cpu": 0,
-        "lean_min_mem": 0,
-        "lean_max_mem": 0,
-        "count": 1,
-        "validator_count": 1,
-        "is_aggregator": False,
-        "node_selectors": {},
-        "tolerations": [],
-        "prometheus_config": {"scrape_interval": "15s", "labels": {}},
-    }
+# pipeline (PK's eth-beacon-genesis leanchain). Lean clients live in the
+# standard `participants:` block with a Lean `cl_type` value (see
+# constants.LEAN_CL_TYPES). main.star synthesizes Lean records from each
+# such participant and hands them to src/lean/lean_launcher.star, which
+# runs the XMSS / hash-sig / leanchain genesis pipeline and starts the
+# client binary. Network-level knobs (active_epoch,
+# attestation_committee_count, ...) live in `lean_network_params:`.
 
 
 def default_lean_network_params():
@@ -2668,27 +2660,3 @@ def default_lean_network_params():
     }
 
 
-def parse_lean_participants(raw_participants):
-    """Normalize the lean_participants list by filling defaults per-entry."""
-    parsed = []
-    for raw in raw_participants:
-        entry = default_lean_participant()
-        for k, v in raw.items():
-            entry[k] = v
-        # Resolve image: explicit override > registry default. We fail fast
-        # rather than silently shipping an empty image string downstream
-        # because Kurtosis's error in that case is opaque ("invalid image: ").
-        if entry["lean_image"] == "":
-            default_image = DEFAULT_LEAN_IMAGES.get(entry["lean_type"], "")
-            if default_image == "":
-                fail(
-                    (
-                        "lean_type '{0}' has no default image; please set "
-                        + "`lean_image` on this participant."
-                    ).format(entry["lean_type"])
-                )
-            entry["lean_image"] = default_image
-        if entry["count"] < 1:
-            fail("lean_participants[].count must be >= 1")
-        parsed.append(entry)
-    return parsed

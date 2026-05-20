@@ -292,21 +292,21 @@ port_publisher:
 #     echo "Hello"
 extra_files: {}
 
-# Lean Ethereum consensus participants. Each entry adds one or more Lean
-# consensus nodes that run alongside (and independently of) the EL/CL
-# network above. Lean has no EL pairing, no Engine API, no JWT, and uses
-# post-quantum (XMSS) validator signatures. See docs/lean-consensus.md for
-# the architecture and docs/lean-adding-a-new-client.md for adding a new
-# Lean client.
+# Lean Ethereum knobs (post-quantum signatures, XMSS validator keys,
+# leanchain genesis). Lean clients themselves live in the standard
+# `participants:` block above with a Lean cl_type (ethlambda, ream, zeam,
+# qlean, lantern, gean, lean_grandine, lean_lighthouse). ethlambda is the
+# only Lean client that wires Engine API today
+# (lambdaclass/ethlambda#367); the rest run with `el_type: none`.
 #
-# Example - 4 ethlambda nodes with one validator each:
-# lean_participants:
-#   - lean_type: ethlambda
-#     lean_image: ghcr.io/lambdaclass/ethlambda:devnet4
+# Example - 4 ethlambda nodes paired with ethrex:
+# participants:
+#   - el_type: ethrex
+#     cl_type: ethlambda
+#     cl_image: ghcr.io/lambdaclass/ethlambda:engine-api-integration
 #     count: 4
 #     validator_count: 1
-#     is_aggregator: false
-lean_participants: []
+#     is_aggregator: true
 lean_network_params:
   # Seconds added to "now" to compute GENESIS_TIME when genesis_time is 0.
   genesis_delay: 60
