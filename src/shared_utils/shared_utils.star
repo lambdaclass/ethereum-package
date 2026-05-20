@@ -209,13 +209,16 @@ def get_client_names(participant, index, participant_contexts, participant_confi
     cl_client = participant.cl_context
     el_client = participant.el_context
     vc_client = participant.vc_context
+    # Lean cl_types don't go through the standard CL launcher, so cl_context
+    # is None. Fall back to the cl_type string from the participant config so
+    # downstream consumers (validator-ranges, dora, etc.) still get a usable
+    # name for the row.
+    cl_name = cl_client.client_name if cl_client != None else participant_config.cl_type
     if el_client == None:
-        base_name = "{0}-{1}".format(index_str, cl_client.client_name)
+        base_name = "{0}-{1}".format(index_str, cl_name)
     else:
-        base_name = "{0}-{1}-{2}".format(
-            index_str, el_client.client_name, cl_client.client_name
-        )
-    if vc_client != None and cl_client.client_name != vc_client.client_name:
+        base_name = "{0}-{1}-{2}".format(index_str, el_client.client_name, cl_name)
+    if vc_client != None and cl_name != vc_client.client_name:
         full_name = base_name + "-{0}".format(vc_client.client_name)
     else:
         full_name = base_name

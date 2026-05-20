@@ -147,6 +147,19 @@ def launch(
     for index, participant in enumerate(args_with_right_defaults.participants):
         cl_type = participant.cl_type
         el_type = participant.el_type
+
+        # Lean cl_types are launched by the Lean pipeline (src/lean/),
+        # not by the standard CL dispatcher. We append `None` to the
+        # per-index context lists so downstream `all_cl_contexts[index]`
+        # lookups stay aligned with `args_with_right_defaults.participants`;
+        # main.star then runs the Lean launcher with the right el_contexts
+        # and jwt_file. Mirrors the EL_TYPE.none / cl-only path the package
+        # already supports for `consensoor` etc.
+        if cl_type in constants.LEAN_CL_TYPES:
+            all_cl_contexts.append(None)
+            all_snooper_el_engine_contexts.append(None)
+            continue
+
         node_selectors = input_parser.get_client_node_selectors(
             participant.node_selectors,
             global_node_selectors,

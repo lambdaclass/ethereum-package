@@ -77,6 +77,7 @@ PARTICIPANT_CATEGORIES = {
         "vc_beacon_node_indices",
         "checkpoint_sync_enabled",
         "skip_start",
+        "is_aggregator",
     ],
 }
 
@@ -487,6 +488,11 @@ ADDITIONAL_SERVICES_PARAMS = [
 ]
 
 ADDITIONAL_CATEGORY_PARAMS = {
+    # Lean Ethereum network-level knobs (active_epoch,
+    # attestation_committee_count, ...). Per-participant Lean config
+    # rides on `participants:` entries with a Lean cl_type — see
+    # constants.LEAN_CL_TYPES.
+    "lean_network_params": "",
     "wait_for_finalization": "",
     "global_log_level": "",
     "snooper_enabled": "",

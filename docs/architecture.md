@@ -75,6 +75,41 @@ Once CL genesis data and keys have been created, the CL client nodes are started
 
 There are only two major difference between CL client and EL client launchers. First, the `cl_client_launcher.launch` method also consumes an `el_context`, because each CL client is connected in a 1:1 relationship with an EL client. Second, because CL clients have keys, the keystore files are passed in to the `launch` function as well.
 
+## Lean Ethereum participants
+
+Lean Ethereum consensus clients live in the standard `participants:`
+block with a Lean `cl_type` — one of `ethlambda`, `ream`, `zeam`,
+`qlean`, `lantern`, `gean`, `lean_grandine`, `lean_lighthouse`. The
+standard CL dispatcher in [`src/cl/cl_launcher.star`](../src/cl/cl_launcher.star)
+skips these; `main.star` then routes them to a parallel pipeline under
+[`src/lean/`](../src/lean) that runs its own genesis and starts the
+client binary.
+
+`ethlambda` is the only Lean client that implements Engine API today
+([lambdaclass/ethlambda#367](https://github.com/lambdaclass/ethlambda/pull/367));
+it can be paired with any EL the way standard CLs are
+(`el_type: ethrex, cl_type: ethlambda` etc.). The other Lean clients
+run client-only with `el_type: none` until Engine API ships on their
+side too. Lean-only deployments (every participant `el_type: none`)
+relax the package's first-participant-must-have-EL guard.
+
+Genesis uses
+[`eth-beacon-genesis leanchain`](https://github.com/ethpandaops/eth-beacon-genesis)
+for the chain bundle and
+[`blockblaz/hash-sig-cli`](https://hub.docker.com/r/blockblaz/hash-sig-cli)
+for XMSS validator keypairs (lives in
+[`src/prelaunch_data_generator/lean_genesis/`](../src/prelaunch_data_generator/lean_genesis)).
+Per-client launchers translate each Lean record into the client's CLI
+(see the contract documented inline in each `<client>_launcher.star`).
+Metrics ride a vendored Prometheus + Grafana stack with the upstream
+Lean client dashboard pre-loaded.
+
+Canonical args examples:
+
+- [`.github/tests/ethlambda-el-pair.yaml`](../.github/tests/ethlambda-el-pair.yaml) — single EL + ethlambda pair
+- [`.github/tests/ethlambda-el-pair-2node.yaml`](../.github/tests/ethlambda-el-pair-2node.yaml) — two EL + ethlambda pairs, one aggregator + one not
+- [`.github/tests/lean-devnet4.yaml`](../.github/tests/lean-devnet4.yaml) — devnet4 multi-client (all `el_type: none`)
+
 ## Auxiliary Services
 
 After the Ethereum network is up and running, this package starts several auxiliary containers to make it easier to work with the Ethereum network. At time of writing, these are:

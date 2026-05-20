@@ -20,6 +20,58 @@ CL_TYPE = struct(
     grandine="grandine",
     consensoor="consensoor",
     caplin="caplin",
+    # Lean Ethereum CL clients. These live in `participants:` alongside the
+    # standard CL types but are launched by the Lean pipeline under
+    # `src/lean/` rather than `src/cl/`. The `cl_launcher.star` dispatcher
+    # skips Lean cl_types; the Lean launcher is then invoked from main.star
+    # with the participant's el_context (Some when paired with an EL, None
+    # when el_type is `none`).
+    #
+    # ethlambda is the only Lean client with Engine API today
+    # (lambdaclass/ethlambda#367). The rest run with `el_type: none`.
+    # `lean_grandine`/`lean_lighthouse` are prefixed to disambiguate from
+    # the standard Eth1 CLs above which share those repository names.
+    ethlambda="ethlambda",
+    ream="ream",
+    zeam="zeam",
+    qlean="qlean",
+    lantern="lantern",
+    gean="gean",
+    lean_grandine="lean_grandine",
+    lean_lighthouse="lean_lighthouse",
+)
+
+# Set of CL types that route to the Lean pipeline. The cl_launcher
+# dispatcher skips these (no eth-side beacon launch); main.star then
+# builds Lean records from each such participant and hands them to
+# lean_launcher.launch with the paired el_context (None for unpaired).
+LEAN_CL_TYPES = (
+    CL_TYPE.ethlambda,
+    CL_TYPE.ream,
+    CL_TYPE.zeam,
+    CL_TYPE.qlean,
+    CL_TYPE.lantern,
+    CL_TYPE.gean,
+    CL_TYPE.lean_grandine,
+    CL_TYPE.lean_lighthouse,
+)
+
+# Lean Ethereum consensus clients (post-quantum signatures, leanchain
+# genesis, libp2p QUIC). Today only ethlambda implements Engine API on
+# the Lean side, so the other clients run with `el_type: none`. The
+# `grandine`/`lighthouse` values are prefixed with `lean_` to avoid
+# colliding with the Eth1 CL types in CL_TYPE that share those names.
+LEAN_TYPE = struct(
+    ethlambda="ethlambda",
+    ream="ream",
+    zeam="zeam",
+    qlean="qlean",
+    lantern="lantern",
+    grandine="lean_grandine",
+    lighthouse="lean_lighthouse",
+    gean="gean",
+    peam="peam",
+    nlean="nlean",
 )
 
 VC_TYPE = struct(
@@ -110,6 +162,31 @@ DEFAULT_BOOTNODOOR_IMAGE = "ethpandaops/bootnodoor:latest"
 DEFAULT_ETHEREUM_GENESIS_GENERATOR_IMAGE = (
     "ethpandaops/ethereum-genesis-generator:6.0.6"
 )
+
+# Lean genesis tooling. `pk910-leanchain` is pk910's leanchain branch of
+# eth-beacon-genesis (ethpandaops/eth-beacon-genesis PR #36); it consumes a
+# validator-config.yaml and emits config.yaml + validators.yaml + nodes.yaml +
+# genesis.{ssz,json}. `hash-sig-cli` generates the XMSS attester/proposer
+# keypairs that GENESIS_VALIDATORS references.
+DEFAULT_LEAN_GENESIS_GENERATOR_IMAGE = "ethpandaops/eth-beacon-genesis:pk910-leanchain"
+DEFAULT_LEAN_HASH_SIG_CLI_IMAGE = "blockblaz/hash-sig-cli:latest"
+
+# Lean P2P / API / metrics port IDs and defaults. Lean clients speak QUIC over
+# UDP only (no TCP discovery), expose a JSON REST API, and a Prometheus metrics
+# endpoint on a separate port — the same triple used by every Lean client in
+# blockblaz/lean-quickstart.
+LEAN_QUIC_PORT_ID = "quic"
+LEAN_API_PORT_ID = "http"
+LEAN_METRICS_PORT_ID = "metrics"
+LEAN_QUIC_PORT_NUM = 9000
+LEAN_API_PORT_NUM = 5052
+LEAN_METRICS_PORT_NUM = 5054
+
+# Mountpoints inside Lean client containers. Kept stable across all Lean
+# clients so the integration contract documented in docs/lean-adding-a-new-client.md
+# matches what clients receive at runtime.
+LEAN_GENESIS_MOUNTPOINT_ON_CLIENTS = "/network-configs"
+LEAN_NODE_KEY_MOUNTPOINT_ON_CLIENTS = "/node-keys"
 DEFAULT_YQ_IMAGE = "linuxserver/yq"
 DEFAULT_FLASHBOTS_RELAY_IMAGE = "ethpandaops/mev-boost-relay:main"
 DEFAULT_FLASHBOTS_BUILDER_IMAGE = "ethpandaops/reth-rbuilder:develop"

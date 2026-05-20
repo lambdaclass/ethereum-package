@@ -48,6 +48,11 @@ def launch_dora(
     all_cl_client_info = []
     all_el_client_info = []
     for index, participant in enumerate(participant_contexts):
+        # Skip Lean cl_types entirely — they don't expose an Eth1 beacon
+        # API, so they can't be added to either the CL or EL lists that
+        # dora's config template renders against.
+        if participant_configs[index].cl_type in constants.LEAN_CL_TYPES:
+            continue
         full_name, cl_client, el_client, _ = shared_utils.get_client_names(
             participant, index, participant_contexts, participant_configs
         )

@@ -1,0 +1,21 @@
+# Single ethrex + ethlambda pair, smoke test for Engine API pairing.
+#
+# - ethlambda runs as a CL inside `participants:` (cl_type: ethlambda).
+# - Its launcher is wired in src/lean/ethlambda/ethlambda_launcher.star; the
+#   standard CL dispatcher in src/cl/cl_launcher.star skips Lean cl_types,
+#   then main.star routes them into the Lean pipeline with the paired
+#   el_context and the network JWT.
+# - The `:engine-api-integration` image is built from
+#   lambdaclass/ethlambda#367 locally (no registry yet).
+#
+# Other Lean clients live in `participants:` too with `el_type: none`
+# (no Engine API yet) — see `lean-devnet4.yaml` and `lean-smoke.yaml`.
+participants:
+  - el_type: ethrex
+    cl_type: ethlambda
+    cl_image: ghcr.io/lambdaclass/ethlambda:engine-api-integration
+    count: 1
+    validator_count: 1
+    is_aggregator: true
+
+additional_services: []

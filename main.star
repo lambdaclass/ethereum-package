@@ -1,6 +1,7 @@
 input_parser = import_module("./src/package_io/input_parser.star")
 constants = import_module("./src/package_io/constants.star")
 participant_network = import_module("./src/participant_network.star")
+lean_launcher = import_module("./src/lean/lean_launcher.star")
 shared_utils = import_module("./src/shared_utils/shared_utils.star")
 static_files = import_module("./src/static_files/static_files.star")
 genesis_constants = import_module(
@@ -329,6 +330,64 @@ def run(plan, args={}):
         )
         all_xatu_sentry_contexts.append(participant.xatu_sentry_context)
 
+    # Launch Lean Ethereum consensus participants. Lean clients are
+    # `participants:` entries whose `cl_type` is in
+    # constants.LEAN_CL_TYPES. The cl_launcher dispatcher already
+    # skipped them (None cl_context); here we build equivalent Lean
+    # records from each participant and hand them — together with the
+    # paired el_context (None when el_type is `none`) and the network
+    # JWT — to src/lean/lean_launcher.launch. ethlambda is the only
+    # Lean client that wires Engine API today (lambdaclass/ethlambda#367);
+    # the others run with `el_type: none`.
+    lean_records = []
+    for index, participant in enumerate(args_with_right_defaults.participants):
+        if participant.cl_type not in constants.LEAN_CL_TYPES:
+            continue
+        paired_el_context = (
+            all_el_contexts[index] if index < len(all_el_contexts) else None
+        )
+        lean_records.append(
+            {
+                "lean_type": participant.cl_type,
+                "lean_image": participant.cl_image,
+                # The standard input parser already expanded `count: N` into
+                # N separate `participants:` entries (input_parser.star:1260),
+                # so we synthesize one Lean record per expanded participant
+                # and hardcode count=1 here — otherwise the Lean launcher's
+                # own count expansion would multiply N×N.
+                "count": 1,
+                "validator_count": participant.validator_count
+                or args_with_right_defaults.lean_network_params[
+                    "num_validator_keys_per_node"
+                ],
+                "is_aggregator": participant.is_aggregator,
+                "lean_extra_params": participant.cl_extra_params,
+                "lean_extra_env_vars": participant.cl_extra_env_vars,
+                "lean_extra_labels": participant.cl_extra_labels,
+                "lean_log_level": participant.cl_log_level,
+                "lean_min_cpu": participant.cl_min_cpu,
+                "lean_max_cpu": participant.cl_max_cpu,
+                "lean_min_mem": participant.cl_min_mem,
+                "lean_max_mem": participant.cl_max_mem,
+                "node_selectors": participant.node_selectors,
+                "tolerations": participant.tolerations,
+                "prometheus_config": {
+                    "scrape_interval": participant.prometheus_config.scrape_interval,
+                    "labels": participant.prometheus_config.labels or {},
+                },
+                # Underscore-prefixed fields are internal hand-offs to
+                # the Lean launcher.
+                "_el_context": paired_el_context,
+            }
+        )
+
+    all_lean_contexts = lean_launcher.launch(
+        plan,
+        lean_records,
+        args_with_right_defaults.lean_network_params,
+        jwt_file=jwt_file,
+    )
+
     # Generate validator ranges
     validator_ranges_config_template = read_file(
         static_files.VALIDATOR_RANGES_CONFIG_TEMPLATE_FILEPATH
@@ -340,10 +399,17 @@ def run(plan, args={}):
         args_with_right_defaults.participants,
     )
 
-    fuzz_target = "http://{0}:{1}".format(
-        all_el_contexts[0].ip_addr,
-        all_el_contexts[0].rpc_port_num,
-    )
+    # `fuzz_target` is only consumed by additional services that talk to an
+    # Eth1 EL (tx-fuzz, rakoon, broadcaster, custom_flood). For all-Lean
+    # deployments (every participant `el_type: none`) there is no EL to
+    # point at; leave it empty and let the additional-service handlers
+    # guard their own use.
+    fuzz_target = ""
+    if len(all_el_contexts) > 0 and all_el_contexts[0] != None:
+        fuzz_target = "http://{0}:{1}".format(
+            all_el_contexts[0].ip_addr,
+            all_el_contexts[0].rpc_port_num,
+        )
 
     # Broadcaster forwards requests, sent to it, to all nodes in parallel
     if "broadcaster" in args_with_right_defaults.additional_services:

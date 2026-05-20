@@ -348,6 +348,21 @@ def launch_participant_network(
         index_str = shared_utils.zfill_custom(
             index + 1, len(str(len(args_with_right_defaults.participants)))
         )
+        # Lean cl_types own their own validator client logic (XMSS keys live
+        # inside the consensus binary). Skip the entire VC / remote-signer /
+        # snooper / metrics-exporter pipeline for them — those things assume
+        # an Eth1 beacon API that Lean clients don't expose. Pad the context
+        # lists that get appended-to in-loop so per-index alignment with
+        # `participants` holds. (`all_vc_contexts` is rebuilt below, so it
+        # doesn't need padding here.)
+        if cl_type in constants.LEAN_CL_TYPES:
+            all_remote_signer_contexts.append(None)
+            all_snooper_beacon_contexts.append(None)
+            all_snooper_el_rpc_contexts.append(None)
+            all_ethereum_metrics_exporter_contexts.append(None)
+            all_xatu_sentry_contexts.append(None)
+            continue
+
         el_context = all_el_contexts[index] if index < len(all_el_contexts) else None
         cl_context = all_cl_contexts[index] if index < len(all_cl_contexts) else None
 

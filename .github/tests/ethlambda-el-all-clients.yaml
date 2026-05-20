@@ -1,0 +1,74 @@
+# Cross-client EL × ethlambda experiment: 6 EL clients × 2 each, every
+# node paired with ethlambda via Engine API (12 EL+CL pairs total).
+# One ethlambda is the aggregator; the remaining 11 are non-aggregators.
+#
+# Client set: ethrex, nethermind, geth, erigon, nimbus-el (nimbus-eth1),
+# besu. ethereumjs and reth omitted from this experiment.
+#
+# The ethlambda image is built locally from lambdaclass/ethlambda#367 —
+# see the PR description for the build command.
+#
+# Dora intentionally omitted — it requires at least one Eth1 beacon
+# endpoint to start, and Lean cl_types don't expose one yet. Re-enable
+# once ethlambda ships Beacon API compatibility stubs.
+participants:
+  # First ethrex+ethlambda pair is the network aggregator.
+  - el_type: ethrex
+    cl_type: ethlambda
+    cl_image: ghcr.io/lambdaclass/ethlambda:engine-api-integration
+    count: 1
+    validator_count: 1
+    is_aggregator: true
+  # Second ethrex+ethlambda — non-aggregator peer.
+  - el_type: ethrex
+    cl_type: ethlambda
+    cl_image: ghcr.io/lambdaclass/ethlambda:engine-api-integration
+    count: 1
+    validator_count: 1
+    is_aggregator: false
+  # 2× nethermind
+  - el_type: nethermind
+    cl_type: ethlambda
+    cl_image: ghcr.io/lambdaclass/ethlambda:engine-api-integration
+    count: 2
+    validator_count: 1
+    is_aggregator: false
+  # 2× geth
+  - el_type: geth
+    cl_type: ethlambda
+    cl_image: ghcr.io/lambdaclass/ethlambda:engine-api-integration
+    count: 2
+    validator_count: 1
+    is_aggregator: false
+  # 2× erigon
+  - el_type: erigon
+    cl_type: ethlambda
+    cl_image: ghcr.io/lambdaclass/ethlambda:engine-api-integration
+    count: 2
+    validator_count: 1
+    is_aggregator: false
+  # 2× nimbus-eth1
+  - el_type: nimbus
+    cl_type: ethlambda
+    cl_image: ghcr.io/lambdaclass/ethlambda:engine-api-integration
+    count: 2
+    validator_count: 1
+    is_aggregator: false
+  # 2× besu
+  - el_type: besu
+    cl_type: ethlambda
+    cl_image: ghcr.io/lambdaclass/ethlambda:engine-api-integration
+    count: 2
+    validator_count: 1
+    is_aggregator: false
+
+lean_network_params:
+  # 180s gives the 12 EL containers time to warm up before the Lean
+  # chain starts producing blocks. With the default 60s, several early
+  # slots missed because proposers couldn't get a payload back from
+  # their paired EL within the 4s slot window during EL JIT/cache
+  # warm-up; those early gaps then blocked 3SF-mini's `delta ≤ 5`
+  # finalization rule.
+  genesis_delay: 180
+
+additional_services: []

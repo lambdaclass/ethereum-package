@@ -1,0 +1,64 @@
+# 14-node Lean devnet4. Every participant pins the devnet4 image
+# explicitly via `cl_image:`; DEFAULT_CL_IMAGES point at `:latest` so
+# the defaults don't rot when a new devnet generation ships.
+#
+# Single aggregator on the first ethlambda. lean_lighthouse is omitted:
+# the published `hopinheimer/lighthouse:latest` image is still on the
+# single-key (devnet3) GENESIS_VALIDATORS layout and won't reach
+# consensus with the devnet4 nodes.
+participants:
+  - el_type: none
+    cl_type: ethlambda
+    cl_image: ghcr.io/lambdaclass/ethlambda:devnet4
+    count: 1
+    validator_count: 1
+    is_aggregator: true
+  - el_type: none
+    cl_type: ethlambda
+    cl_image: ghcr.io/lambdaclass/ethlambda:devnet4
+    count: 1
+    validator_count: 1
+    is_aggregator: false
+  - el_type: none
+    cl_type: ream
+    cl_image: ghcr.io/reamlabs/ream:latest-devnet4
+    count: 2
+    validator_count: 1
+    is_aggregator: false
+  - el_type: none
+    cl_type: zeam
+    cl_image: blockblaz/zeam:devnet4
+    count: 2
+    validator_count: 1
+    is_aggregator: false
+  - el_type: none
+    cl_type: qlean
+    cl_image: qdrvm/qlean-mini:devnet-4-amd64
+    count: 2
+    validator_count: 1
+    is_aggregator: false
+  - el_type: none
+    cl_type: lantern
+    cl_image: piertwo/lantern:v0.0.4
+    count: 2
+    validator_count: 1
+    is_aggregator: false
+  - el_type: none
+    cl_type: lean_grandine
+    cl_image: sifrai/lean:devnet-4
+    count: 2
+    validator_count: 1
+    is_aggregator: false
+  - el_type: none
+    cl_type: gean
+    cl_image: ghcr.io/geanlabs/gean:devnet4
+    count: 2
+    validator_count: 1
+    is_aggregator: false
+
+lean_network_params:
+  genesis_delay: 180
+  active_epoch: 18
+  attestation_committee_count: 1
+
+additional_services: []

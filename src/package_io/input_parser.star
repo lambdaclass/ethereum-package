@@ -26,6 +26,17 @@ DEFAULT_CL_IMAGES = {
     "grandine": "sifrai/grandine:stable",
     "consensoor": "ethpandaops/consensoor:main",
     "caplin": "ethpandaops/caplin:main",
+    # Lean CL clients. Routed through the Lean pipeline (src/lean/), not
+    # the standard CL launchers. Operators pin a specific devnet image
+    # per-participant via `cl_image:` in their args file.
+    "ethlambda": "ghcr.io/lambdaclass/ethlambda:latest",
+    "ream": "ghcr.io/reamlabs/ream:latest",
+    "zeam": "blockblaz/zeam:latest",
+    "qlean": "qdrvm/qlean-mini:latest",
+    "lantern": "piertwo/lantern:latest",
+    "gean": "ghcr.io/geanlabs/gean:latest",
+    "lean_grandine": "sifrai/lean:latest",
+    "lean_lighthouse": "hopinheimer/lighthouse:latest",
 }
 
 DEFAULT_CL_IMAGES_MINIMAL = {
@@ -37,6 +48,14 @@ DEFAULT_CL_IMAGES_MINIMAL = {
     "grandine": "ethpandaops/grandine:develop-minimal",
     "consensoor": "ethpandaops/consensoor:main",
     "caplin": "ethpandaops/caplin:main",
+    "ethlambda": "ghcr.io/lambdaclass/ethlambda:latest",
+    "ream": "ghcr.io/reamlabs/ream:latest",
+    "zeam": "blockblaz/zeam:latest",
+    "qlean": "qdrvm/qlean-mini:latest",
+    "lantern": "piertwo/lantern:latest",
+    "gean": "ghcr.io/geanlabs/gean:latest",
+    "lean_grandine": "sifrai/lean:latest",
+    "lean_lighthouse": "hopinheimer/lighthouse:latest",
 }
 
 DEFAULT_VC_IMAGES = {
@@ -73,6 +92,7 @@ DEFAULT_ADDITIONAL_SERVICES = []
 ATTR_TO_BE_SKIPPED_AT_ROOT = (
     "network_params",
     "participants",
+    "lean_network_params",
     "mev_params",
     "blockscout_params",
     "dora_params",
@@ -136,6 +156,15 @@ def input_parser(plan, input_args):
     result["mempool_bridge_params"] = get_default_mempool_bridge_params()
     result["zkboost_params"] = get_default_zkboost_params()
     result["buildoor_params"] = get_default_buildoor_params()
+
+    # Lean Ethereum: knobs (active_epoch, attestation_committee_count,
+    # num_validator_keys_per_node, metrics_enabled, ...) live in their
+    # own params block since they don't map cleanly to Eth1 fields. Only
+    # consulted when at least one participant has a Lean cl_type.
+    result["lean_network_params"] = default_lean_network_params()
+    if "lean_network_params" in input_args:
+        for k, v in input_args["lean_network_params"].items():
+            result["lean_network_params"][k] = v
 
     if constants.NETWORK_NAME.shadowfork in result["network_params"]["network"]:
         shadow_base = result["network_params"]["network"].split("-shadowfork")[0]
@@ -442,7 +471,20 @@ def input_parser(plan, input_args):
             )
         )
 
-    if result["network_params"]["fulu_fork_epoch"] != constants.FAR_FUTURE_EPOCH:
+    # Fulu / PeerDAS validation only applies to the Eth1 EL/CL participant
+    # network. Skip it when every participant has a Lean cl_type — Lean
+    # clients don't speak PeerDAS.
+    has_any_eth1_cl = any(
+        [
+            p["cl_type"] not in constants.LEAN_CL_TYPES
+            for p in result["participants"]
+        ]
+    )
+    if (
+        result["network_params"]["fulu_fork_epoch"] != constants.FAR_FUTURE_EPOCH
+        and len(result["participants"]) > 0
+        and has_any_eth1_cl
+    ):
         has_supernodes = False
         has_node_with_128_plus_validators = False
         num_perfect_peerdas_participants = 0
@@ -595,8 +637,18 @@ def input_parser(plan, input_args):
 
         _validate_ere_gpu_config(result["zkboost_params"]["zkvms"])
 
+    # The "first participant must have an EL" check only applies when there
+    # actually IS at least one Eth1 participant; lean-only deployments
+    # (participants: []) skip the EL/CL pipeline entirely. We also skip it
+    # when every participant has a Lean cl_type — Lean clients use their
+    # own libp2p QUIC mesh and don't need an Eth1 bootnode.
+    all_lean = len(result["participants"]) > 0 and all(
+        [p["cl_type"] in constants.LEAN_CL_TYPES for p in result["participants"]]
+    )
     if (
-        "bootnodoor" not in result["additional_services"]
+        len(result["participants"]) > 0
+        and not all_lean
+        and "bootnodoor" not in result["additional_services"]
         and result["participants"][0]["el_type"] == constants.EL_TYPE.none
     ):
         fail(
@@ -715,6 +767,7 @@ def input_parser(plan, input_args):
                 vc_beacon_node_indices=participant["vc_beacon_node_indices"],
                 checkpoint_sync_enabled=participant["checkpoint_sync_enabled"],
                 skip_start=participant["skip_start"],
+                is_aggregator=participant["is_aggregator"],
             )
             for participant in result["participants"]
         ],
@@ -1099,6 +1152,10 @@ def input_parser(plan, input_args):
             builder_api=result["buildoor_params"]["builder_api"],
             epbs_builder=result["buildoor_params"]["epbs_builder"],
         ),
+        # Lean Ethereum knobs. Stored as a plain dict (not a nested struct)
+        # because the Lean per-client launchers reach for fields by string
+        # key — see src/lean/lean_launcher.star.
+        lean_network_params=result["lean_network_params"],
     )
 
 
@@ -1829,6 +1886,9 @@ def default_participant():
         "vc_beacon_node_indices": None,
         "checkpoint_sync_enabled": None,
         "skip_start": False,
+        # Lean CL knob — only consulted when cl_type is in constants.LEAN_CL_TYPES.
+        # Non-Lean participants ignore it.
+        "is_aggregator": False,
     }
 
 
@@ -2552,3 +2612,51 @@ def get_devnet_modified_images(network_name, default_images):
             modified_images[client_type] = get_devnet_image_tag(network_name, image)
 
     return modified_images
+
+
+# ---------------------------------------------------------------------------
+# Lean Ethereum parsing
+# ---------------------------------------------------------------------------
+# Lean is a post-quantum-signature consensus stack with its own genesis
+# pipeline (PK's eth-beacon-genesis leanchain). Lean clients live in the
+# standard `participants:` block with a Lean `cl_type` value (see
+# constants.LEAN_CL_TYPES). main.star synthesizes Lean records from each
+# such participant and hands them to src/lean/lean_launcher.star, which
+# runs the XMSS / hash-sig / leanchain genesis pipeline and starts the
+# client binary. Network-level knobs (active_epoch,
+# attestation_committee_count, ...) live in `lean_network_params:`.
+
+
+def default_lean_network_params():
+    # Genesis timing and shape parameters consumed by the Lean genesis tool
+    # (eth-beacon-genesis leanchain). Keep them flat to mirror the
+    # `validator-config.yaml.config` block expected by the generator and by
+    # every Lean client's CLI.
+    return {
+        # Seconds added to "now" to compute GENESIS_TIME when the user does
+        # not pass an absolute genesis_time. 60s gives all containers time to
+        # boot, mount artifacts, and reach the gossip mesh before slot 0.
+        "genesis_delay": 60,
+        # Explicit Unix timestamp; 0 = derive from genesis_delay.
+        "genesis_time": 0,
+        # leanSpec ATTESTATION_COMMITTEE_COUNT. 1 = single committee per slot
+        # (the only configuration covered by the spec tests today).
+        "attestation_committee_count": 1,
+        # log_2(active epochs) for the XMSS hash-sig scheme. 18 matches the
+        # default in lean-quickstart's validator-config.yaml.
+        "active_epoch": 18,
+        # Number of validator hash-sig keypairs to assign to each node when
+        # the participant does not override `validator_count`.
+        "num_validator_keys_per_node": 1,
+        # Image overrides for the Lean genesis tooling. Empty = use the
+        # `DEFAULT_LEAN_GENESIS_GENERATOR_IMAGE` / `DEFAULT_LEAN_HASH_SIG_CLI_IMAGE`
+        # constants. Override to pin a specific PK genesis-tool commit.
+        "genesis_generator_image": "",
+        "hash_sig_cli_image": "",
+        # When true, start a Prometheus + Grafana stack inside the enclave
+        # that scrapes every Lean node's `/metrics` endpoint and serves the
+        # upstream Lean client dashboard at port 3000.
+        "metrics_enabled": True,
+    }
+
+
