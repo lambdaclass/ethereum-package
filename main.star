@@ -350,7 +350,12 @@ def run(plan, args={}):
             {
                 "lean_type": participant.cl_type,
                 "lean_image": participant.cl_image,
-                "count": participant.count,
+                # The standard input parser already expanded `count: N` into
+                # N separate `participants:` entries (input_parser.star:1260),
+                # so we synthesize one Lean record per expanded participant
+                # and hardcode count=1 here — otherwise the Lean launcher's
+                # own count expansion would multiply N×N.
+                "count": 1,
                 "validator_count": participant.validator_count
                 or args_with_right_defaults.lean_network_params[
                     "num_validator_keys_per_node"
