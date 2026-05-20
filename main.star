@@ -394,10 +394,17 @@ def run(plan, args={}):
         args_with_right_defaults.participants,
     )
 
-    fuzz_target = "http://{0}:{1}".format(
-        all_el_contexts[0].ip_addr,
-        all_el_contexts[0].rpc_port_num,
-    )
+    # `fuzz_target` is only consumed by additional services that talk to an
+    # Eth1 EL (tx-fuzz, rakoon, broadcaster, custom_flood). For all-Lean
+    # deployments (every participant `el_type: none`) there is no EL to
+    # point at; leave it empty and let the additional-service handlers
+    # guard their own use.
+    fuzz_target = ""
+    if len(all_el_contexts) > 0 and all_el_contexts[0] != None:
+        fuzz_target = "http://{0}:{1}".format(
+            all_el_contexts[0].ip_addr,
+            all_el_contexts[0].rpc_port_num,
+        )
 
     # Broadcaster forwards requests, sent to it, to all nodes in parallel
     if "broadcaster" in args_with_right_defaults.additional_services:
