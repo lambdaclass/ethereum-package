@@ -62,4 +62,13 @@ participants:
     validator_count: 1
     is_aggregator: false
 
+lean_network_params:
+  # 180s gives the 12 EL containers time to warm up before the Lean
+  # chain starts producing blocks. With the default 60s, several early
+  # slots missed because proposers couldn't get a payload back from
+  # their paired EL within the 4s slot window during EL JIT/cache
+  # warm-up; those early gaps then blocked 3SF-mini's `delta ≤ 5`
+  # finalization rule.
+  genesis_delay: 180
+
 additional_services: []
