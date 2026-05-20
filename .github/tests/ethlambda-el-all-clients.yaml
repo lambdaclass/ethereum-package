@@ -1,0 +1,76 @@
+# 8 EL clients × 2 each, each paired with an ethlambda CL via Engine API
+# (16 total EL+ethlambda pairs). One ethlambda is the aggregator; the
+# remaining 15 are non-aggregators.
+#
+# The ethlambda image is built locally from lambdaclass/ethlambda#367 —
+# see the PR description for the build command.
+#
+# Dora is added as an additional service; it renders the EL side only
+# (Lean cl_types don't expose an Eth1 beacon API).
+participants:
+  # First ethrex+ethlambda pair is the network aggregator.
+  - el_type: ethrex
+    cl_type: ethlambda
+    cl_image: ghcr.io/lambdaclass/ethlambda:engine-api-integration
+    count: 1
+    validator_count: 1
+    is_aggregator: true
+  # Second ethrex+ethlambda — non-aggregator peer.
+  - el_type: ethrex
+    cl_type: ethlambda
+    cl_image: ghcr.io/lambdaclass/ethlambda:engine-api-integration
+    count: 1
+    validator_count: 1
+    is_aggregator: false
+  # 2× geth
+  - el_type: geth
+    cl_type: ethlambda
+    cl_image: ghcr.io/lambdaclass/ethlambda:engine-api-integration
+    count: 2
+    validator_count: 1
+    is_aggregator: false
+  # 2× nethermind
+  - el_type: nethermind
+    cl_type: ethlambda
+    cl_image: ghcr.io/lambdaclass/ethlambda:engine-api-integration
+    count: 2
+    validator_count: 1
+    is_aggregator: false
+  # 2× besu
+  - el_type: besu
+    cl_type: ethlambda
+    cl_image: ghcr.io/lambdaclass/ethlambda:engine-api-integration
+    count: 2
+    validator_count: 1
+    is_aggregator: false
+  # 2× reth
+  - el_type: reth
+    cl_type: ethlambda
+    cl_image: ghcr.io/lambdaclass/ethlambda:engine-api-integration
+    count: 2
+    validator_count: 1
+    is_aggregator: false
+  # 2× erigon
+  - el_type: erigon
+    cl_type: ethlambda
+    cl_image: ghcr.io/lambdaclass/ethlambda:engine-api-integration
+    count: 2
+    validator_count: 1
+    is_aggregator: false
+  # 2× nimbus-eth1
+  - el_type: nimbus
+    cl_type: ethlambda
+    cl_image: ghcr.io/lambdaclass/ethlambda:engine-api-integration
+    count: 2
+    validator_count: 1
+    is_aggregator: false
+  # 2× ethereumjs
+  - el_type: ethereumjs
+    cl_type: ethlambda
+    cl_image: ghcr.io/lambdaclass/ethlambda:engine-api-integration
+    count: 2
+    validator_count: 1
+    is_aggregator: false
+
+additional_services:
+  - dora
