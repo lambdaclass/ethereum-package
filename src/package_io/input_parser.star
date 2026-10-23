@@ -288,6 +288,9 @@ def input_parser(plan, input_args):
             )
         )
 
+    # Runs after the MEV enrichment so the builder participant it appends is covered too.
+    result = enrich_lighthouse_subscribe_all_subnets(result)
+
     # Per-participant buildoor builders. buildoor is an additional_service: it is
     # only spun up when "buildoor" is in additional_services. Its targeting is
     # configured (independently of the participants) via buildoor_params.instances
@@ -2645,6 +2648,24 @@ def enrich_disable_peer_scoring(parsed_arguments_dict):
             participant["cl_extra_params"].append("--disablePeerScoring")
         if participant["cl_type"] == "grandine":
             participant["cl_extra_params"].append("--disable-peer-scoring")
+    return parsed_arguments_dict
+
+
+# ethlambda's beacon node publishes attestations to subnets it is not subscribed
+# to through gossipsub fanout, which only reaches peers subscribed to that subnet.
+# A lighthouse node with few or no validators subscribes to almost no attestation
+# subnets, so ethlambda's attestations can fail to reach it.
+def enrich_lighthouse_subscribe_all_subnets(parsed_arguments_dict):
+    participants = parsed_arguments_dict["participants"]
+    if not any([participant["cl_type"] == "ethlambda" for participant in participants]):
+        return parsed_arguments_dict
+    for participant in participants:
+        # lighthouse rejects a flag given twice
+        if (
+            participant["cl_type"] == "lighthouse"
+            and "--subscribe-all-subnets" not in participant["cl_extra_params"]
+        ):
+            participant["cl_extra_params"].append("--subscribe-all-subnets")
     return parsed_arguments_dict
 
 

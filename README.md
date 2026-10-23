@@ -376,6 +376,7 @@ participants:
     # Valid values are nimbus, lighthouse, lodestar, teku, prysm, grandine and ethlambda
     # ethlambda (mainnet preset only) cannot be the first participant unless bootnodoor is enabled,
     # and its block production supports neither blob transactions nor sync committee aggregates yet
+    # When an ethlambda beacon node is present, lighthouse nodes get --subscribe-all-subnets automatically
     cl_type: lighthouse
 
     # The Docker image that should be used for the CL client; leave blank to use the default for the client type
