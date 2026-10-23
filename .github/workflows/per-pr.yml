@@ -18,6 +18,7 @@ jobs:
             "./.github/tests/mix-persistence.yaml",
             "./.github/tests/mix-public.yaml",
             "./.github/tests/minimal.yaml",
+            "./.github/tests/ethlambda.yaml",
             "./network_params.yaml",
             "."
           ]
